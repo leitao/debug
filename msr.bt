@@ -1,0 +1,14 @@
+tracepoint:msr:write_msr {
+	if (args->msr == 0x48 && args->val == 1) {
+		if (args->failed) {
+			printf("write failed\n");
+			print(kstack());
+		}
+		/* printf("%x -> %x\n", args->val, args->failed); */
+		@[kstack(10)] = count();
+	}
+
+
+}
+
+interval:s:5 { exit(); }
