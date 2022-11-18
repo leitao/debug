@@ -1,0 +1,43 @@
+kprobe:net_rx_action {
+    $c = cpu;
+    @nc[$c] = 0;
+}
+kprobe:__napi_poll+52 {
+    $c = cpu;
+    @nc[$c] += 1;
+    @start[$c] = nsecs;
+    @ptr[$c] = *((uint64 *)(reg("bx") + 0x28));
+}
+kprobe:__napi_poll+68 {
+    $c = cpu;
+    @end[$c] = nsecs;
+    @ret[$c] = reg("r15");
+}
+kprobe:net_rx_action {
+    $jif = *((uint64 *)kaddr("jiffies"));
+    $c = cpu;
+    @tstart[$c] = nsecs;
+    @jstart[$c] = $jif;
+}
+kprobe:net_rx_action+621 {
+    $jif = *((uint64 *)kaddr("jiffies"));
+    $end = *((uint64 *)reg("sp"));
+    printf("squeeze on cpu %02u (pkts:%u tl:%d) (%s)\n", cpu, 300 - reg("r14"), $end - $jif, comm);
+    $c = cpu;
+    $n = nsecs;
+    printf("   > n calls:%u  last pkts:%u  last usecs:%u  last sym:%lx\n",
+	   @nc[$c], @ret[$c], (@end[$c] - @start[$c]) / 1000, @ptr[$c]);
+    printf("   > usecs since  action:%u poll:%u\n",
+	   ($n - @tstart[$c]) / 1000, ($n - @end[$c]) / 1000);
+    printf("   > jiffies  action:%lu end:%lu now:%lu\n",
+	   @jstart[$c], $end, $jif);
+}
+END {
+    clear(@ptr);
+    clear(@nc);
+    clear(@ret);
+    clear(@tstart);
+    clear(@jstart);
+    clear(@start);
+    clear(@end);
+}
