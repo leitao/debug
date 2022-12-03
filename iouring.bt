@@ -1,0 +1,40 @@
+tracepoint:io_uring:io_uring_create {
+	printf("Created: ctx=%x cq=%x cq=%x \n", args->ctx, args->sq_entries, args->cq_entries);
+}
+
+tracepoint:io_uring:io_uring_submit_sqe {
+	printf("submit sqe opcode=%x ctx=%x flags=%x\n", args->opcode, args->ctx, args->flags);
+	printf("           user_data = %lx opstr=%s \n", *args->user_data, str(args->op_str))
+}
+
+tracepoint:io_uring:io_uring_complete {
+	printf("complete ctx=%x user_data=%x res=%d\n", args->ctx, args->user_data, args->res);
+}
+
+kfunc:io_msg_ring_prep {
+	printf("io_msg_ring_prep called\n");
+}
+kfunc:io_msg_ring {
+	printf("io_msg_ring called\n");
+}
+
+kretfunc:io_msg_ring {
+	printf("Stack = %s\n", kstack);
+	printf("io_msg_ring returning %x\n", retval);
+}
+
+kfunc:io_post_aux_cqe {
+	printf("io_post_aux_cqe called\n");
+}
+
+kfunc:io_fill_cqe_aux {
+	printf("io_fill_cqe_aux called\n");
+}
+
+kretfunc:io_post_aux_cqe {
+	printf("io_post_aux_cqe returning %x\n", retval);
+}
+
+kretfunc:io_issue_sqe {
+	printf("returning from io_issue_sqe = %x\n", retval);
+}
