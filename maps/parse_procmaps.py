@@ -24,8 +24,8 @@ def find_pid(name: str) -> int:
 
     if len(pids) > 1:
         print(f"Multiple processes found for '{name}': pids = {pids}", file=sys.stderr)
-        for line in verbose_list:
-            print(f" * {line}", file=sys.stderr)
+        # for line in verbose_list:
+        #     print(f" * {line}", file=sys.stderr)
 
         sys.exit(-1)
 
@@ -42,8 +42,8 @@ def mem_size(line: str, verbose: bool):
     global entries
     entries += 1
 
-    if verbose:
-        print(f"{size :<10} : {area}")
+    # if verbose:
+    #     print(f"{size :<10} : {area}")
 
 
 def read_proc_maps(pid: int, verbose: bool):
@@ -61,8 +61,8 @@ def read_proc_smaps(pid: int, verbose: bool):
 
 
                 size = line.split()[1]
-                if verbose:
-                    print(f"{size :<10}")
+                # if verbose:
+                #     print(f"{size :<10}")
 
                 global total_size
                 global entries
@@ -108,12 +108,18 @@ def get_from_maps(pid: int, verbose: bool) -> None:
     total_size = int(total_size/1024)
     rss = rss
 
-    print(f"MAPS : Size = {total_size:,d}, RSS = {rss:,d}, VMA entries = {entries}")
+    if verbose:
+        print(f"MAPS : Size = {total_size}, RSS = {rss}, VMA entries = {entries}")
+    else:
+        print(f"MAPS,{total_size},{rss},{entries}")
 
 def get_from_smaps(pid: int, verbose: bool) -> None:
     read_proc_smaps(pid, verbose)
     rss = read_rss_from_smaps(pid, verbose)
-    print(f"SMAPS: Size = {total_size:,d}, RSS = {rss:,d}, VMA entries = {entries}")
+    if verbose:
+        print(f"SMAPS: Size = {total_size}, RSS = {rss}, VMA entries = {entries}")
+    else:
+        print(f"SMAPS,{total_size},{rss},{entries}")
 
 def get_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description='parse /proc/pid/maps for a process name')
