@@ -70,11 +70,50 @@ def read_proc_smaps(pid: int, verbose: bool):
                 total_size += int(size)
 
 
+def read_rss_from_status(pid: int, verbose: bool) -> None:
+    total = 0
+    with open(f"/proc/{pid}/status") as f:
+        for line in f.readlines():
+            if line.startswith("Rss"):
+                if line.split()[2] != "kB":
+                    print(f"Warning. No 'kB' found in : {line}")
+                    continue
+
+                rss = line.split()[1]
+                total += int(rss)
+
+    return total
+
+
+
+def read_rss_from_smaps(pid: int, verbose: bool) -> None:
+    with open(f"/proc/{pid}/smaps_rollup") as f:
+        for line in f.readlines():
+            if line.startswith("Rss:"):
+                if line.split()[2] != "kB":
+                    print(f"Warning. No 'kB' found in : {line}")
+                    continue
+
+                rss = line.split()[1]
+                return int(rss)
+
+    print(f"Error reading RSS from smaps_rollup for PID={pid}", file=sys.stderr)
+    sys.exit(-1)
+
 def get_from_maps(pid: int, verbose: bool) -> None:
     read_proc_maps(pid, verbose)
+    rss = read_rss_from_status(pid, verbose)
+    # Getting the numbers in Kb to compare with the other method
+    global total_size
+    total_size = int(total_size/1024)
+    rss = rss
+
+    print(f"MAPS : Size = {total_size:,d}, RSS = {rss:,d}, VMA entries = {entries}")
 
 def get_from_smaps(pid: int, verbose: bool) -> None:
     read_proc_smaps(pid, verbose)
+    rss = read_rss_from_smaps(pid, verbose)
+    print(f"SMAPS: Size = {total_size:,d}, RSS = {rss:,d}, VMA entries = {entries}")
 
 def get_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description='parse /proc/pid/maps for a process name')
@@ -99,10 +138,8 @@ if __name__ == "__main__":
 
     if args.smaps:
         get_from_smaps(pid, args.verbose)
-        print(f"SMAPS: Size = {round(total_size/(1024*1024), 2)} Mb and entries = {entries}")
 
     if args.maps:
         total_size = 0
         entries = 0
         get_from_maps(pid, args.verbose)
-        print(f"MAPS: Size = {round(total_size/(1024*1024*1024), 2)} Mb and entries = {entries}")
