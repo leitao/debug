@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <sys/mman.h>
 #include <stdbool.h>
+#include <string.h>
 
 #define MAX 100
 
@@ -10,6 +11,28 @@ static void write_to_mem(char *mem, size_t size)
 	for (int i = 0; i < size; i++) {
 		mem[i] = '.';
 	}
+}
+
+void print_rss() {
+    FILE *statusFile = fopen("/proc/self/status", "r");
+
+    if (statusFile == NULL) {
+        perror("Failed to open /proc/self/status");
+        return;
+    }
+
+    char line[256];  // Buffer to read lines from the file
+
+    // Read the file line by line
+    while (fgets(line, sizeof(line), statusFile)) {
+        // Check if the line contains "RSS"
+        if (strstr(line, "RSS")) {
+            // Print the line that contains "RSS"
+            printf("%s", line);
+        }
+    }
+
+    fclose(statusFile);
 }
 
 int main(int argc, char** argv) {
@@ -26,8 +49,6 @@ int main(int argc, char** argv) {
 
 
 	size *= 1024 * 1024; 
-
-
 
 	while (true) {
 		for (int i = 0 ; i < MAX; i++) { 
@@ -55,6 +76,7 @@ int main(int argc, char** argv) {
 				return 1;
 			}
 		}
+		print_rss();
 	}
 
 	return 0;
