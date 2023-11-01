@@ -1,0 +1,35 @@
+#!/bin/bash
+
+TIER=$1
+shift
+CMD=${@:-uname -r}
+
+# Set MAX to limit the number of hosts to cycle over
+iter=${MAX:--1}
+
+[[ -n ${TIER} ]] || exit 1
+
+run_command() {
+	RET=$(ssh root@${1} ${CMD} 2> /dev/null)
+
+	echo $1 " : ${RET}"
+}
+
+pids=()
+
+for HOST in $(smcc ls-hosts -r ${TIER})
+do
+	iter=$(( $iter - 1 ))
+	run_command ${HOST} &
+	pids+=( $! )
+
+	if [[ ${iter} -eq 0 ]]
+       	then
+		echo "max iteractions ($MAX) reached. Breaking"
+		break
+	fi
+done
+
+for pid in "${pids[@]}"; do
+	wait $pid
+done
