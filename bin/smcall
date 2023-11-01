@@ -10,9 +10,11 @@ iter=${MAX:--1}
 [[ -n ${TIER} ]] || exit 1
 
 run_command() {
-	RET=$(ssh root@${1} ${CMD} 2> /dev/null)
+	UNAME=$(ssh root@${1} uname -r 2> /dev/null)
+	# xargs will concatenate the strings
+	RET=$(ssh root@${1} ${CMD} 2> /dev/null | xargs)
 
-	echo $1 " : ${RET}"
+	echo -e $1 "\t: $UNAME\t: ${RET}"
 }
 
 pids=()
