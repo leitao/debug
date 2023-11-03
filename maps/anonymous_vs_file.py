@@ -14,7 +14,7 @@ def find_pid(name: str) -> int:
     verbose_list = []
     for line_ in proc.stdout:
         line = line_.decode().strip()
-        if name in line and "python" not in line and "procmaps" not in line:
+        if name in line and "python" not in line and ".py" not in line:
             # print(f"Found process:\n   *  {line}", file=sys.stderr)
             ret = line.split()
             verbose_list.append(line)
@@ -133,7 +133,7 @@ if __name__ == "__main__":
         if output[k]['Rss']:
             ratio = math.ceil(output[k]['VmSize'] / output[k]['Rss'])
 
-        print(f"{k}, {output[k]['Rss']}, {output[k]['VmSize']}, {ratio}")
+        print(f"{k}, {output[k]['Rss']}, {output[k]['VmSize']}, {ratio},")
 
     if args.verbose:
         pprint(output)
