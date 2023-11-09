@@ -16,7 +16,7 @@ uprobe:/usr/local/fbcode/platform010/lib/libc.so.6:mmap /comm == str($1) / {
 tracepoint:syscalls:sys_enter_mmap  /comm == str($1) / {
 	if (args.flags & 0x20) {
 		@mmap += args.len;
-		@stack[ustack] = count();
+		/* @stack[ustack()] = count(); */
 	}
 }
 
@@ -28,5 +28,5 @@ tracepoint:syscalls:sys_enter_munmap  /comm == str($1) / {
 interval:s:2 {
 	 printf("total mmaped = %d\n", @mmap);
 	 printf("total mmunmapped = %d\n", @munmapped);
-	 print(@stack)
+	 /* print(@stack) */
 }

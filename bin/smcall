@@ -10,7 +10,7 @@ iter=${MAX:--1}
 [[ -n ${TIER} ]] || exit 1
 
 run_command() {
-	UNAME=$(ssh root@${1} uname -r 2> /dev/null)
+	UNAME=$(ssh root@${1} uname -r  2> /dev/null | cut -c-20)
 	# xargs will concatenate the strings
 	RET=$(ssh root@${1} ${CMD} 2> /dev/null | xargs)
 
