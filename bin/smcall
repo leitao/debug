@@ -14,7 +14,7 @@ run_command() {
 	# xargs will concatenate the strings
 	RET=$(ssh root@${1} ${CMD} 2> /dev/null | xargs)
 
-	echo -e $1 "\t, $UNAME\t, ${RET}"
+	echo -e $1 "\t, $UNAME\t,\t ${RET}"
 }
 
 pids=()

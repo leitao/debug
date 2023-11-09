@@ -1,0 +1,32 @@
+#!/usr/bin/bpftrace
+
+BEGIN{
+	printf("comm == %s\n", str($1));
+	@mmap = 0u;
+	@munmapped = 0u;
+}
+
+uprobe:/usr/local/fbcode/platform010/lib/libc.so.6:mmap /comm == str($1) / {
+	if (arg3 & 0x20) {
+		printf("%s\n", ustack());
+	}
+}
+
+
+tracepoint:syscalls:sys_enter_mmap  /comm == str($1) / {
+	if (args.flags & 0x20) {
+		@mmap += args.len;
+		@stack[ustack] = count();
+	}
+}
+
+tracepoint:syscalls:sys_enter_munmap  /comm == str($1) / {
+	@munmapped += args.len;
+}
+
+
+interval:s:2 {
+	 printf("total mmaped = %d\n", @mmap);
+	 printf("total mmunmapped = %d\n", @munmapped);
+	 print(@stack)
+}
