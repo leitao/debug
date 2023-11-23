@@ -1,0 +1,30 @@
+#!/usr/bin/bpftrace
+
+
+BEGIN
+{
+    @program_name = str($1);
+    printf("Monitoring mmap calls for %s...\n", @program_name);
+    @map_ = (uint64) 0;
+    @map_len = (uint64)  0;
+    @unmap = (uint64) 0;
+    @unmap_len = (uint64) 0;
+
+}
+
+/* @value = 0 */
+tracepoint:syscalls:sys_enter_mmap /comm == @program_name /
+{
+	@map += 1;
+	@map_len += args.len;
+}
+
+tracepoint:syscalls:sys_enter_munmap /comm == @program_name /
+{
+	@unmap += 1;
+	@unmap_len += args.len;
+}
+
+interval:s:10 {
+	printf("%10d, %10d, %10d, %10d\n", @map, @map_len, @unmap, @unmap_len);
+}
