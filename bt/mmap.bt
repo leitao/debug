@@ -1,30 +1,37 @@
 #!/usr/bin/bpftrace
 
-
 BEGIN
 {
-    @program_name = str($1);
-    printf("Monitoring mmap calls for %s...\n", @program_name);
-    @map_ = (uint64) 0;
+    @map = (uint64) 0;
     @map_len = (uint64)  0;
     @unmap = (uint64) 0;
     @unmap_len = (uint64) 0;
-
+    @i = 0;
+    @G = (uint64) 1000*1000;
+    printf("index\t  mmap_cnt\t\t mmap_len\t munmap_cnt\t munmnap_len\n")
 }
 
 /* @value = 0 */
-tracepoint:syscalls:sys_enter_mmap /comm == @program_name /
+tracepoint:syscalls:sys_enter_mmap /pid == $1/
 {
-	@map += 1;
-	@map_len += args.len;
+        @map += 1;
+        @map_len += args.len;
 }
 
-tracepoint:syscalls:sys_enter_munmap /comm == @program_name /
+tracepoint:syscalls:sys_enter_munmap /pid == $1/
 {
-	@unmap += 1;
-	@unmap_len += args.len;
+        @unmap += 1;
+        @unmap_len += args.len;
 }
 
 interval:s:10 {
-	printf("%10d, %10d, %10d, %10d\n", @map, @map_len, @unmap, @unmap_len);
+        printf("%4d - %10d\t %10d M\t %10d\t %10d M\n", @i, @map, @map_len / @G, @unmap, @unmap_len/ @G);
+        @i += 1;
+}
+
+interval:s:100 {
+        printf("======== Summary ===\n");
+        printf("mmap_cnt\t\t mmap_len\t munmap_cnt\t munmnap_len\n");
+        printf("%10d\t %10d M\t %10d\t\t %10d M\n", @map, @map_len / @G, @unmap, @unmap_len/ @G);
+        exit();
 }
