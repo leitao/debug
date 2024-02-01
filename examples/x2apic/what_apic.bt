@@ -1,0 +1,12 @@
+#!/usr/bin/bpftrace
+
+kprobe:*apic*
+{
+        @[func] = count()
+}
+
+
+interval:s:5
+{
+    exit();
+}

@@ -21,5 +21,4 @@ mitigations['retbleed_mitigation'] = prog['retbleed_mitigation']
 
 for mit in mitigations:
     value = str(mitigations[mit]).split(')')[1]
-    
     print(f"{mit:23} \t {value}")
