@@ -5,6 +5,10 @@ kprobe:*apic*
         @[func] = count()
 }
 
+kprobe:*IPI*
+{
+        @[func] = count()
+}
 
 interval:s:5
 {
