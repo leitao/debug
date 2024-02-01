@@ -16,6 +16,8 @@ if stderr:
 
 val =  int(stdout.decode().strip(), 16)
 x2apic = bool(val & (1 << 10))
+apic = bool(val & (1 << 10))
 
-print(f"APIC enabled: {x2apic}")
+print(f"X2APIC enabled: {x2apic}")
+print(f"APIC enabled: {apic}")
 
