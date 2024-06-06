@@ -8,7 +8,7 @@
 
 
 #define MAXPATH 1024
-#define THREADS 1
+#define THREADS 100
 #define SYNC_AFTER_FILES 1000/THREADS
 
 char *dstdir = "/tmp";
