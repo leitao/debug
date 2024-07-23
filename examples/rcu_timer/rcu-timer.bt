@@ -1,0 +1,35 @@
+#!/usr/bin/bpftrace
+
+kprobe:kfree_rcu_work {
+        @start_work[tid] = nsecs;
+}
+
+kprobe:kfree_rcu_monitor {
+        @start_monitor[tid] = nsecs;
+}
+
+
+kretprobe:kfree_rcu_monitor /@start_monitor[tid]/ {
+        @ms = (nsecs - @start_monitor[tid])/1000;
+
+        @breakdown_monitor[comm] = hist(@ms);
+        @all_monitor = hist(@ms);
+
+        delete(@start_monitor[tid]);
+}
+
+kretprobe:kfree_rcu_work /@start_work[tid]/ {
+        @ms = (nsecs - @start_work[tid])/1000;
+
+        @breakdown_work[comm] = hist(@ms);
+        @all_work = hist(@ms);
+
+        delete(@start_work[tid]);
+}
+
+interval:s:10 {
+        print("== monitor ==");
+        print(@all_monitor);
+        print("== work ==");
+        print(@all_work);
+}
