@@ -1,4 +1,4 @@
-#!env drgn
+#!/bin/drgn
 
 mitigations = {}
 
