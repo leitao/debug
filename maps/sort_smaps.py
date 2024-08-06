@@ -109,11 +109,14 @@ def get_from_maps(pid: int, verbose: bool) -> None:
     else:
         print(f"MAPS,{total_size},{rss},{entries}")
 
-def get_from_smaps(pid: int, verbose: bool) -> None:
+def get_from_smaps(pid: int, verbose: bool, top: int) -> None:
     blocks = read_proc_smaps(pid, verbose)
     for block in blocks:
        json_string = json.dumps(block, indent=4)
        print(json_string)
+       top -= 1
+       if top == 0:
+           break
 
 
 
@@ -122,6 +125,7 @@ def get_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description='parse /proc/pid/maps for a process name')
     parser.add_argument('name', help='process name')
     parser.add_argument('--verbose', action='store_true', help='verbose')
+    parser.add_argument('--top', default=3, type=int, help='number of top entries to print')
 
     return parser.parse_args()
 
@@ -137,4 +141,4 @@ if __name__ == "__main__":
         print("Pid not found", file=sys.stderr)
         sys.exit(-1)
 
-    get_from_smaps(pid, args.verbose)
+    get_from_smaps(pid, args.verbose, args.top )
