@@ -1,0 +1,15 @@
+/* Detect who is raising a softirq from irqoff */
+kprobe:__raise_softirq_irqoff {
+    @softirq_stacks[cpu] = kstack();
+}
+
+kretprobe:report_idle_softirq /retval == 1/{
+	printf("GOT HERE\n");
+	print(@softirq_stacks[cpu]);
+}
+
+interval:s:10 {
+	/* print(@softirq_stacks); */
+	clear(@softirq_stacks);
+	exit();
+}
