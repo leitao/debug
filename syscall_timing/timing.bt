@@ -1,0 +1,35 @@
+fentry:vmlinux:do_el0_svc {
+	@entry_fentry[tid] = nsecs;
+}
+
+kprobe:vmlinux:do_el0_svc {
+	@entry_probe[tid] = nsecs;
+}
+
+fexit:vmlinux:do_el0_svc / @entry_fentry[tid] / {
+	$difference = nsecs - @entry_fentry[tid];
+	delete(@entry_fentry[tid]);
+	@duration_fentry = hist($difference)
+}
+
+kretprobe:vmlinux:do_el0_svc / @entry_probe[tid] / {
+	$difference = nsecs - @entry_probe[tid];
+	delete(@entry_probe[tid]);
+	@duration_probe = hist($difference)
+}
+
+END
+{
+	clear(@entry_fentry);
+	clear(@entry_probe);
+
+	print(@duration_fentry);
+	print(@duration_probe);
+
+	clear(@duration_fentry);
+	clear(@duration_probe);
+}
+
+interval:s:2 {
+	exit();
+}
