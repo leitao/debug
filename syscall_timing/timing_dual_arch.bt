@@ -1,0 +1,24 @@
+fentry:vmlinux:do_el0_svc,fentry:vmlinux:x64_sys_call {
+	@entry_fentry[tid] = nsecs;
+}
+
+
+fexit:vmlinux:do_el0_svc,fexit:vmlinux:x64_sys_call / @entry_fentry[tid] / {
+	$difference = nsecs - @entry_fentry[tid];
+	delete(@entry_fentry[tid]);
+	@duration_fentry = hist($difference)
+}
+
+
+END
+{
+	clear(@entry_fentry);
+
+	print(@duration_fentry);
+
+	clear(@duration_fentry);
+}
+
+interval:s:2 {
+	exit();
+}
