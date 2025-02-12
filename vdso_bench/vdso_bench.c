@@ -9,6 +9,10 @@
 #include <unistd.h>
 
 
+/* Create a single thread that run clock_gettime() with different clockids,
+ * and report the number of operations per second
+ */
+
 /* From linux/time.h */
 #define CLOCK_REALTIME                  0
 #define CLOCK_MONOTONIC                 1
@@ -69,43 +73,94 @@ void *get_time(void *_td) {
 	return ret;
 }
 
-
-void run_for_secs(int secs, thread_func func, struct thread_data *td)
+unsigned long create_threads(int thread_count, int secs, thread_func func, struct thread_data *td)
 {
-	unsigned long *count;
-	unsigned long calls_per_sec_in_m;
-        pthread_t thread;
+	unsigned long **counts;
+	unsigned long total = 0;
+        pthread_t *threads;
         int ret;
 
+
+	threads = malloc(thread_count * sizeof(pthread_t));
+	counts = malloc(thread_count * sizeof(unsigned long *));
+
         stopping = false;
-        ret = pthread_create(&thread, NULL, func, td);
-        if (ret) {
-                fprintf(stderr, "pthread_create failed: %d\n", ret);
-                return;
-        }
+	for (int i = 0 ; i < thread_count; i++) {
+		ret = pthread_create(&threads[i], NULL, func, td);
+		if (ret) {
+			fprintf(stderr, "pthread_create failed: %d\n", ret);
+			return -1;
+		}
+	}
         sleep(secs);
         stopping = true;
-        pthread_join(thread, (void **)&count);
-	if (!*count) {
-		fprintf(stderr, "Failed to get metrics for %s\n", clock_names[td->clockid]);
-		return;
+	for (int i = 0 ; i < thread_count; i++) {
+		int count_per_thread;
+
+		pthread_join(threads[i], (void **)&counts[i]);
+		count_per_thread = *counts[i];
+		/* return in Millions */
+		total += (count_per_thread / (1000 * 1000)) / secs;
 	}
 
 
-	calls_per_sec_in_m = (*count / (1000 * 1000)) / secs;
-	printf("Number of calls to %s : %lu M/s\n", clock_names[td->clockid], calls_per_sec_in_m);
+
+	return total;
+
+}
+
+void run_for_secs(int thread_count, int secs, thread_func func, struct thread_data *td)
+{
+	unsigned long calls_per_s;
+
+	calls_per_s = create_threads(thread_count, secs, func, td);
+
+	printf("Number of calls to %s : %lu M/s per thread\n", clock_names[td->clockid], calls_per_s / thread_count);
 }
 
 
 
-int main() {
-	int runtime = 2;
+int main (int argc, char **argv)
+{
+	/* default timeout, overwritten by -t */
+	int threads_count = 1;
+	int timeout = 1;
+	/* print all */
+	clockid_t clockid = -1;
+	int arg;
 
 	struct thread_data td;
 
-	for (int i = 0; i < 9; i++) {
-		td.clockid = i;
-		run_for_secs(runtime, get_time, &td);
+	while ((arg = getopt (argc, argv, "t:p:c:")) != -1) {
+		switch (arg)
+		{
+			case 't':
+				// Timeout
+				timeout = atoi(optarg);
+				break;
+			case 'p':
+				threads_count = atoi(optarg);
+				break;
+			case 'c':
+				clockid = atoi(optarg);
+				break;
+
+		}
+	}
+
+
+	printf("running %d threads for %d seconds\n", threads_count, timeout);
+
+
+	if (clockid == -1) {
+		/* by default, run all clock types */
+		for (int i = 0; i < 9; i++) {
+			td.clockid = i;
+			run_for_secs(threads_count, timeout, get_time, &td);
+		}
+	} else {
+		td.clockid = clockid;
+		run_for_secs(threads_count, timeout, get_time, &td);
 	}
 
 	return 0;
