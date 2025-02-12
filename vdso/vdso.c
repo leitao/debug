@@ -73,7 +73,7 @@ void *get_time(void *_td) {
 void run_for_secs(int secs, thread_func func, struct thread_data *td)
 {
 	unsigned long *count;
-	unsigned long kcount;
+	unsigned long calls_per_sec_in_m;
         pthread_t thread;
         int ret;
 
@@ -88,19 +88,21 @@ void run_for_secs(int secs, thread_func func, struct thread_data *td)
         pthread_join(thread, (void **)&count);
 
 
-	kcount = *count / 1000;
-	printf("Number of calls to %s in %d secs: %lu K\n", clock_names[td->clockid], secs, kcount);
+	calls_per_sec_in_m = (*count / (1000 * 1000)) / secs;
+	printf("Number of calls to %s : %lu M/s\n", clock_names[td->clockid], calls_per_sec_in_m);
 }
 
 
 
 int main() {
-	int runtime = 1;
+	int runtime = 2;
 
 	struct thread_data td;
-	td.clockid = CLOCK_MONOTONIC_COARSE;
 
-	run_for_secs(runtime, get_time, &td);
+	for (int i = 0; i < 9; i++) {
+		td.clockid = i;
+		run_for_secs(runtime, get_time, &td);
+	}
 
 	return 0;
 }
