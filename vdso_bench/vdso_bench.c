@@ -59,6 +59,7 @@ void *get_time(void *_td) {
 		result = clock_gettime(clock, &ts);
 		if (result != 0) {
 			printf("Error getting time through VDSO\n");
+			stopping = true;
 			return NULL;
 		}
 		count += 1;
@@ -120,10 +121,27 @@ void run_for_secs(int thread_count, int secs, thread_func func, struct thread_da
 
 
 
+void print_help(const char *name)
+{
+	fprintf(stderr, " Benchmark clock_gettime(3) function:\n\n");
+	fprintf(stderr, "%s <arguments>:\n", name);
+	fprintf(stderr, "	-h                 : This help\n");
+	fprintf(stderr, "	-t <seconds>       : Time running the clock_gettime() in a thread in a loop\n");
+	fprintf(stderr, "	-p <threads_count> : Number of threads running clock_gettime() in a loop\n");
+	fprintf(stderr, "	-c <clockid>       : clock id argument\n");
+
+	fprintf(stderr, "\t   Supported clock ids\n");
+	for (int i = 0; i < 9; i++) {
+		fprintf(stderr, "\t\t%d : %s\n", i, clock_names[i]);
+	}
+	fprintf(stderr, "\n");
+}
+
 int main (int argc, char **argv)
 {
-	/* default timeout, overwritten by -t */
+	/* Default single thread */
 	int threads_count = 1;
+	/* default timeout, overwritten by -t */
 	int timeout = 1;
 	/* print all */
 	clockid_t clockid = -1;
@@ -131,9 +149,12 @@ int main (int argc, char **argv)
 
 	struct thread_data td;
 
-	while ((arg = getopt (argc, argv, "t:p:c:")) != -1) {
+	while ((arg = getopt (argc, argv, "ht:p:c:")) != -1) {
 		switch (arg)
 		{
+			case 'h':
+				print_help(argv[0]);
+				return 0;
 			case 't':
 				// Timeout
 				timeout = atoi(optarg);
