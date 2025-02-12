@@ -81,11 +81,15 @@ void run_for_secs(int secs, thread_func func, struct thread_data *td)
         ret = pthread_create(&thread, NULL, func, td);
         if (ret) {
                 fprintf(stderr, "pthread_create failed: %d\n", ret);
-                exit(1);
+                return;
         }
         sleep(secs);
         stopping = true;
         pthread_join(thread, (void **)&count);
+	if (!*count) {
+		fprintf(stderr, "Failed to get metrics for %s\n", clock_names[td->clockid]);
+		return;
+	}
 
 
 	calls_per_sec_in_m = (*count / (1000 * 1000)) / secs;
