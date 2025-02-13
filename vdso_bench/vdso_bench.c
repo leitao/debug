@@ -27,16 +27,17 @@
 #define CLOCK_HACK			10
 
 char *clock_names[] = {
-	"CLOCK_REALTIME", /* vdso */
-	"CLOCK_MONOTONIC", /* vdso */
-	"CLOCK_PROCESS_CPUTIME_ID", /* syscall */
-	"CLOCK_THREAD_CPUTIME_ID", /* syscall */
-	"CLOCK_MONOTONIC_RAW", /* vdso */
-	"CLOCK_REALTIME_COARSE", /* vdso */
-	"CLOCK_MONOTONIC_COARSE", /* vdso */
-	"CLOCK_BOOTTIME", /* vdso */
-	"CLOCK_REALTIME_ALARM", /* invalid  on aarch 64 */
-	"CLOCK_BOOTTIME_ALARM" /* invalid on aarch64 */
+	"CLOCK_REALTIME",
+	"CLOCK_MONOTONIC",
+	"CLOCK_PROCESS_CPUTIME_ID",
+	"CLOCK_THREAD_CPUTIME_ID",
+	"CLOCK_MONOTONIC_RAW",
+	"CLOCK_REALTIME_COARSE",
+	"CLOCK_MONOTONIC_COARSE",
+	"CLOCK_BOOTTIME",
+	"CLOCK_REALTIME_ALARM",
+	"CLOCK_BOOTTIME_ALARM",
+	"rmikey code",
 };
 
 
@@ -60,15 +61,14 @@ static inline uint32_t read_cntvct_el0() {
 	return val;
 }
 
+uint32_t ticks_per_interval = 0;
 
 /* asm function from rmikey */
 static uint64_t gettime_asm(uint32_t per_ms) {
-	static uint32_t val = 0;
-	static uint32_t ticks_per_interval;
 	uint64_t cval;
 
-	if (val == 0)
-		val = ticks_per_interval = (read_cntfrq_el0() / 1000) * per_ms;
+	if (ticks_per_interval == 0)
+		ticks_per_interval = (read_cntfrq_el0() / 1000) * per_ms;
 
 	cval = read_cntvct_el0();
 
@@ -112,7 +112,6 @@ unsigned long create_threads(int thread_count, int secs, thread_func func, struc
 	unsigned long total = 0;
         pthread_t *threads;
         int ret;
-
 
 	threads = malloc(thread_count * sizeof(pthread_t));
 	counts = malloc(thread_count * sizeof(unsigned long *));
@@ -163,7 +162,7 @@ void print_help(const char *name)
 	fprintf(stderr, "	-c <clockid>       : clock id argument\n");
 
 	fprintf(stderr, "\t   Supported clock ids\n");
-	for (int i = 0; i < 9; i++) {
+	for (int i = 0; i <= 10; i++) {
 		fprintf(stderr, "\t\t%d : %s\n", i, clock_names[i]);
 	}
 	fprintf(stderr, "\n");
