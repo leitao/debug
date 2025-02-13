@@ -24,6 +24,7 @@
 #define CLOCK_BOOTTIME                  7
 #define CLOCK_REALTIME_ALARM            8
 #define CLOCK_BOOTTIME_ALARM            9
+#define CLOCK_HACK			10
 
 char *clock_names[] = {
 	"CLOCK_REALTIME", /* vdso */
@@ -47,6 +48,33 @@ typedef void *(*thread_func)(void *);
 
 volatile bool stopping = false;
 
+static inline uint32_t read_cntfrq_el0() {
+	uint64_t val;
+	__asm__ __volatile__("mrs %0, cntfrq_el0" : "=r" (val));
+	return val & 0xffffffff;
+}
+
+static inline uint32_t read_cntvct_el0() {
+	uint64_t val;
+	__asm__ __volatile__("mrs %0, cntvct_el0" : "=r" (val));
+	return val;
+}
+
+
+/* asm function from rmikey */
+static uint64_t gettime_asm(uint32_t per_ms) {
+	static uint32_t val = 0;
+	static uint32_t ticks_per_interval;
+	uint64_t cval;
+
+	if (val == 0)
+		val = ticks_per_interval = (read_cntfrq_el0() / 1000) * per_ms;
+
+	cval = read_cntvct_el0();
+
+	return ticks_per_interval & cval;
+}
+
 void *get_time(void *_td) {
 	struct thread_data *td = (struct thread_data *)_td;
 	clockid_t clock = td->clockid;
@@ -56,7 +84,11 @@ void *get_time(void *_td) {
 	int result;
 
 	while (!stopping) {
-		result = clock_gettime(clock, &ts);
+		if (clock == 10) {
+			gettime_asm(1);
+		} else {
+			result = clock_gettime(clock, &ts);
+		}
 		if (result != 0) {
 			printf("Error getting time through VDSO\n");
 			stopping = true;
@@ -137,7 +169,8 @@ void print_help(const char *name)
 	fprintf(stderr, "\n");
 }
 
-int main (int argc, char **argv)
+
+int main(int argc, char **argv)
 {
 	/* Default single thread */
 	int threads_count = 1;
