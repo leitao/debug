@@ -37,7 +37,7 @@ char *clock_names[] = {
 	"CLOCK_BOOTTIME",
 	"CLOCK_REALTIME_ALARM",
 	"CLOCK_BOOTTIME_ALARM",
-	"rmikey code",
+	"rmikey code (aarch64 specific code)",
 };
 
 
@@ -45,7 +45,7 @@ struct thread_data {
         clockid_t clockid;
 };
 
-typedef void *(*thread_func)(void *);
+typedef unsigned long *(*thread_func)(void *);
 
 volatile bool stopping = false;
 
@@ -75,7 +75,7 @@ static uint64_t gettime_asm(uint32_t per_ms) {
 	return ticks_per_interval & cval;
 }
 
-void *get_time(void *_td) {
+unsigned long *get_time(void *_td) {
 	struct thread_data *td = (struct thread_data *)_td;
 	clockid_t clock = td->clockid;
 	unsigned long count = 0;
@@ -90,7 +90,7 @@ void *get_time(void *_td) {
 			result = clock_gettime(clock, &ts);
 		}
 		if (result != 0) {
-			printf("Error getting time through VDSO\n");
+			printf("Error getting time through clock_gettime (clockid_t = %s)\n", clock_names[clock]);
 			stopping = true;
 			return NULL;
 		}
@@ -118,8 +118,9 @@ unsigned long create_threads(int thread_count, int secs, thread_func func, struc
 
         stopping = false;
 	for (int i = 0 ; i < thread_count; i++) {
-		ret = pthread_create(&threads[i], NULL, func, td);
+		ret = pthread_create(&threads[i], NULL, (void *)func, td);
 		if (ret) {
+			perror("");
 			fprintf(stderr, "pthread_create failed: %d\n", ret);
 			return -1;
 		}
@@ -127,18 +128,18 @@ unsigned long create_threads(int thread_count, int secs, thread_func func, struc
         sleep(secs);
         stopping = true;
 	for (int i = 0 ; i < thread_count; i++) {
-		int count_per_thread;
+		int count_per_thread = 0;
 
 		pthread_join(threads[i], (void **)&counts[i]);
+		if (!counts[i])
+			continue;
 		count_per_thread = *counts[i];
 		/* return in Millions */
 		total += (count_per_thread / (1000 * 1000)) / secs;
+		free(counts[i]);
 	}
 
-
-
 	return total;
-
 }
 
 void run_for_secs(int thread_count, int secs, thread_func func, struct thread_data *td)
@@ -146,6 +147,9 @@ void run_for_secs(int thread_count, int secs, thread_func func, struct thread_da
 	unsigned long calls_per_s;
 
 	calls_per_s = create_threads(thread_count, secs, func, td);
+
+	if (!calls_per_s)
+		return;
 
 	printf("Number of calls to %s : %lu M/s per thread\n", clock_names[td->clockid], calls_per_s / thread_count);
 }
@@ -207,7 +211,7 @@ int main(int argc, char **argv)
 
 	if (clockid == -1) {
 		/* by default, run all clock types */
-		for (int i = 0; i < 9; i++) {
+		for (int i = 0; i <= 10; i++) {
 			td.clockid = i;
 			run_for_secs(threads_count, timeout, get_time, &td);
 		}
