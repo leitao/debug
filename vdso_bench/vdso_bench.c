@@ -49,6 +49,7 @@ typedef unsigned long *(*thread_func)(void *);
 
 volatile bool stopping = false;
 
+#if defined(CONFIG_ARM)
 static inline uint32_t read_cntfrq_el0() {
 	uint64_t val;
 	__asm__ __volatile__("mrs %0, cntfrq_el0" : "=r" (val));
@@ -61,7 +62,6 @@ static inline uint32_t read_cntvct_el0() {
 	return val;
 }
 
-uint32_t ticks_per_interval = 0;
 
 /* asm function from rmikey */
 static uint64_t gettime_asm(uint32_t per_ms) {
@@ -74,7 +74,13 @@ static uint64_t gettime_asm(uint32_t per_ms) {
 
 	return ticks_per_interval & cval;
 }
+#else
+static uint64_t gettime_asm(__attribute__((unused)) uint32_t per_ms) {
+	return 0;
+}
+#endif
 
+uint32_t ticks_per_interval = 0;
 unsigned long *get_time(void *_td) {
 	struct thread_data *td = (struct thread_data *)_td;
 	clockid_t clock = td->clockid;
@@ -90,7 +96,7 @@ unsigned long *get_time(void *_td) {
 			result = clock_gettime(clock, &ts);
 		}
 		if (result != 0) {
-			printf("Error getting time through clock_gettime (clockid_t = %s)\n", clock_names[clock]);
+			printf("Error getting time through clock_gettime (clockid_t = %s). clock_gettime(2) returned = %d\n", clock_names[clock], result);
 			stopping = true;
 			return NULL;
 		}
@@ -99,17 +105,17 @@ unsigned long *get_time(void *_td) {
 
 	ret = malloc(sizeof(unsigned long));;
 	if (!count) {
-		printf("Failed to allocate memory\n");
+		fprintf(stderr, "Failed to allocate memory\n");
 		return NULL;
 	}
 	*ret = count;
 	return ret;
 }
 
-unsigned long create_threads(int thread_count, int secs, thread_func func, struct thread_data *td)
+float create_threads(int thread_count, int secs, thread_func func, struct thread_data *td)
 {
 	unsigned long **counts;
-	unsigned long total = 0;
+	float total = 0;
         pthread_t *threads;
         int ret;
 
@@ -131,27 +137,27 @@ unsigned long create_threads(int thread_count, int secs, thread_func func, struc
 		int count_per_thread = 0;
 
 		pthread_join(threads[i], (void **)&counts[i]);
-		if (!counts[i])
+		if (!counts[i]) {
+			fprintf(stderr, "Failed to get data for clock = %s\n", clock_names[td->clockid]);
 			continue;
+		}
 		count_per_thread = *counts[i];
 		/* return in Millions */
-		total += (count_per_thread / (1000 * 1000)) / secs;
-		free(counts[i]);
+		total += (count_per_thread / (1000.0 * 1000.0)) / secs;
 	}
 
+	free(threads);
+	free(counts);
 	return total;
 }
 
 void run_for_secs(int thread_count, int secs, thread_func func, struct thread_data *td)
 {
-	unsigned long calls_per_s;
+	float calls_per_s;
 
 	calls_per_s = create_threads(thread_count, secs, func, td);
 
-	if (!calls_per_s)
-		return;
-
-	printf("Number of calls to %s : %lu M/s per thread\n", clock_names[td->clockid], calls_per_s / thread_count);
+	printf("Number of calls to %s : %.2f M/s per thread\n", clock_names[td->clockid], calls_per_s / thread_count);
 }
 
 
