@@ -13,6 +13,9 @@
  * and report the number of operations per second
  */
 
+/* Comment this one to compile on x86 */
+#define CONFIG_ARM
+
 /* From linux/time.h */
 #define CLOCK_REALTIME                  0
 #define CLOCK_MONOTONIC                 1
@@ -48,6 +51,7 @@ struct thread_data {
 typedef unsigned long *(*thread_func)(void *);
 
 volatile bool stopping = false;
+uint32_t ticks_per_interval = 0;
 
 #if defined(CONFIG_ARM)
 static inline uint32_t read_cntfrq_el0() {
@@ -80,7 +84,6 @@ static uint64_t gettime_asm(__attribute__((unused)) uint32_t per_ms) {
 }
 #endif
 
-uint32_t ticks_per_interval = 0;
 unsigned long *get_time(void *_td) {
 	struct thread_data *td = (struct thread_data *)_td;
 	clockid_t clock = td->clockid;
