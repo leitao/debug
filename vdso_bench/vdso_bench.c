@@ -99,7 +99,7 @@ unsigned long *get_time(void *_td) {
 			result = clock_gettime(clock, &ts);
 		}
 		if (result != 0) {
-			printf("Error getting time through clock_gettime (clockid_t = %s). clock_gettime(2) returned = %d\n", clock_names[clock], result);
+			fprintf(stderr, "Error getting time through clock_gettime (clockid_t = %s). clock_gettime(2) returned = %d\n", clock_names[clock], result);
 			stopping = true;
 			return NULL;
 		}
@@ -141,7 +141,6 @@ float create_threads(int thread_count, int secs, thread_func func, struct thread
 
 		pthread_join(threads[i], (void **)&counts[i]);
 		if (!counts[i]) {
-			fprintf(stderr, "Failed to get data for clock = %s\n", clock_names[td->clockid]);
 			continue;
 		}
 		count_per_thread = *counts[i];
