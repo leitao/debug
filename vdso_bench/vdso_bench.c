@@ -101,8 +101,8 @@ unsigned long *get_pid() {
 	}
 
 	ret = malloc(sizeof(unsigned long));;
-	if (!count) {
-		fprintf(stderr, "Failed to allocate memory\n");
+	if (!ret) {
+		fprintf(stderr, "Failed to allocate memory (get_pid)\n");
 		return NULL;
 	}
 	*ret = count;
@@ -132,7 +132,7 @@ unsigned long *get_time(void *_td) {
 	}
 
 	ret = malloc(sizeof(unsigned long));;
-	if (!count) {
+	if (!ret) {
 		fprintf(stderr, "Failed to allocate memory\n");
 		return NULL;
 	}
@@ -189,7 +189,7 @@ void run_for_secs(int thread_count, int secs, thread_func func, struct thread_da
 			printf("Number of calls to %s : %.2f M/s per thread\n", clock_names[td->clockid], calls_per_s / thread_count);
 			break;
 		case (SYSCALL):
-			printf("Number of getpid syscalll : %.2f M/s per thread\n", calls_per_s / thread_count);
+			printf("Number of calls to getpid(2) : %.2f M/s per thread\n", calls_per_s / thread_count);
 			break;
 	}
 }
@@ -261,8 +261,8 @@ int main(int argc, char **argv)
 
 	td.type = GETTIME;
 	if (clockid == -1) {
-		/* by default, run all clock types */
-		for (int i = 0; i <= 10; i++) {
+		/* by default, do not run all types*/
+		for (int i = 0; i <= 8; i++) {
 			td.clockid = i;
 			run_for_secs(threads_count, timeout, get_time, &td);
 		}

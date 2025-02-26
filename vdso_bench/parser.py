@@ -4,8 +4,8 @@ import os, glob
 from typing import Final
 import logging
 
-TIMERS: Final[str] = ["CLOCK_REALTIME", "CLOCK_MONOTONIC", "CLOCK_PROCESS_CPUTIME_ID", "CLOCK_THREAD_CPUTIME_ID", "CLOCK_MONOTONIC_RAW",  "CLOCK_REALTIME_COARSE", "CLOCK_MONOTONIC_COARSE", "CLOCK_BOOTTIME"]
-PATH: Final[str] = os.getcwd() + "/results/"
+TIMERS: Final[str] = ["getpid", "CLOCK_REALTIME", "CLOCK_MONOTONIC", "CLOCK_PROCESS_CPUTIME_ID", "CLOCK_THREAD_CPUTIME_ID", "CLOCK_MONOTONIC_RAW",  "CLOCK_REALTIME_COARSE", "CLOCK_MONOTONIC_COARSE", "CLOCK_BOOTTIME"]
+PATH: Final[str] = os.getcwd() + "/merged/"
 
 # k =  timername, v is {run: time}#
 # d : dict[dict[str: str]] = {}
@@ -29,18 +29,22 @@ for filename in os.listdir(PATH):
                     d[timer][filename] = value
         # break
 
-
+columns.sort()
 
 print('name, ', end="")
 for col in columns:
-    col = col.split('_')[1]
+    col = col.split('_')[1] + "_" + col.split('_')[3]
     print(f"{col}, ", end="")
 
 print("")
 
-for timer, values in d.items():
-    print(f"{timer} ", end='')
+for timer in sorted(d.keys()):
+    values = d[timer]
+    print(f"{timer}, ", end='')
     for col in columns:
+        if not col in values:
+            print(",", end='')
+            continue
         print(f"{values[col]}, ", end = '')
 
     print()
