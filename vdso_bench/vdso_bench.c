@@ -14,7 +14,7 @@
  */
 
 /* Comment this one to compile on x86 */
-#define CONFIG_ARM
+/* #define CONFIG_ARM */
 
 /* From linux/time.h */
 #define CLOCK_REALTIME                  0
@@ -44,7 +44,12 @@ char *clock_names[] = {
 };
 
 
+enum test_type {
+	SYSCALL = 1,
+	GETTIME
+};
 struct thread_data {
+	enum test_type type;
         clockid_t clockid;
 };
 
@@ -83,6 +88,26 @@ static uint64_t gettime_asm(__attribute__((unused)) uint32_t per_ms) {
 	return 0;
 }
 #endif
+
+unsigned long *get_pid() {
+	unsigned long count = 0;
+	unsigned long *ret;
+
+	while (!stopping) {
+		pid_t pid = getpid();
+		// Hack to avoid compiler optimization
+		if (pid)
+			count += 1;
+	}
+
+	ret = malloc(sizeof(unsigned long));;
+	if (!count) {
+		fprintf(stderr, "Failed to allocate memory\n");
+		return NULL;
+	}
+	*ret = count;
+	return ret;
+}
 
 unsigned long *get_time(void *_td) {
 	struct thread_data *td = (struct thread_data *)_td;
@@ -159,7 +184,14 @@ void run_for_secs(int thread_count, int secs, thread_func func, struct thread_da
 
 	calls_per_s = create_threads(thread_count, secs, func, td);
 
-	printf("Number of calls to %s : %.2f M/s per thread\n", clock_names[td->clockid], calls_per_s / thread_count);
+	switch(td->type) {
+		case (GETTIME):
+			printf("Number of calls to %s : %.2f M/s per thread\n", clock_names[td->clockid], calls_per_s / thread_count);
+			break;
+		case (SYSCALL):
+			printf("Number of getpid syscalll : %.2f M/s per thread\n", calls_per_s / thread_count);
+			break;
+	}
 }
 
 
@@ -169,6 +201,7 @@ void print_help(const char *name)
 	fprintf(stderr, " Benchmark clock_gettime(3) function:\n\n");
 	fprintf(stderr, "%s <arguments>:\n", name);
 	fprintf(stderr, "	-h                 : This help\n");
+	fprintf(stderr, "	-s       	   : Only test the syscall benchmark\n");
 	fprintf(stderr, "	-t <seconds>       : Time running the clock_gettime() in a thread in a loop\n");
 	fprintf(stderr, "	-p <threads_count> : Number of threads running clock_gettime() in a loop\n");
 	fprintf(stderr, "	-c <clockid>       : clock id argument\n");
@@ -190,10 +223,11 @@ int main(int argc, char **argv)
 	/* print all */
 	clockid_t clockid = -1;
 	int arg;
+	bool syscall_only = false;
 
 	struct thread_data td;
 
-	while ((arg = getopt (argc, argv, "ht:p:c:")) != -1) {
+	while ((arg = getopt (argc, argv, "ht:p:c:s")) != -1) {
 		switch (arg)
 		{
 			case 'h':
@@ -209,6 +243,9 @@ int main(int argc, char **argv)
 			case 'c':
 				clockid = atoi(optarg);
 				break;
+			case 's':
+				syscall_only = true;
+				break;
 
 		}
 	}
@@ -216,7 +253,13 @@ int main(int argc, char **argv)
 
 	printf("running %d threads for %d seconds\n", threads_count, timeout);
 
+	td.type = SYSCALL;
+	run_for_secs(threads_count, timeout, get_pid, &td);
 
+	if (syscall_only)
+		return 0;
+
+	td.type = GETTIME;
 	if (clockid == -1) {
 		/* by default, run all clock types */
 		for (int i = 0; i <= 10; i++) {
