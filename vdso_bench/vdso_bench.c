@@ -89,12 +89,46 @@ static uint64_t gettime_asm(__attribute__((unused)) uint32_t per_ms) {
 }
 #endif
 
+
+/*
+ * Test without libc to make sure libc is not introducing
+ * any PACA instruction
+ */
+pid_t getpid_raw(void) {
+	pid_t pid;
+
+	/* On ARM64:
+	* - System call number for getpid is 172 (goes in x8)
+	* - Return value comes in x0
+	* - svc #0 is the instruction to trigger the system call
+	*/
+	asm volatile(
+		"mov x8, #172\n"  /* System call number for getpid */
+		"svc #0\n"        /* Trigger system call */
+		"mov %0, x0"      /* Store return value to pid */
+		: "=r" (pid)      /* Output: pid gets assigned the value from x0 */
+		:                 /* No input registers */
+		: "x8", "x0"      /* Clobbered registers */
+	);
+
+	return pid;
+}
+
+// #define USE_LIBC_SYSCALL 1
+#define USE_RAW_SYSCALL 1
+
 unsigned long *get_pid() {
 	unsigned long count = 0;
 	unsigned long *ret;
 
 	while (!stopping) {
+#ifdef USING_LIBC
 		pid_t pid = getpid();
+#elif USE_RAW_SYSCALL
+		pid_t pid = getpid_raw();
+#else
+#error "No clear how to call syscall"
+#endif
 		// Hack to avoid compiler optimization
 		if (pid)
 			count += 1;
