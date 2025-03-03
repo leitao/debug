@@ -1,11 +1,11 @@
-CC      = gcc
+CC      = clang
 CFLAGS  = -Wall -O2 -g -W
 ALL_CFLAGS = $(CFLAGS) -D_GNU_SOURCE -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64
+PACA_FLAGS =-mbranch-protection=pac-ret+bti  -march=armv8.7-a
 
-PROGS = vdso_bench
+# Compilation targets
+PROGS = vdso_bench vdso_bench_paca
 ALL = $(PROGS)
-
-$(PROGS): | depend
 
 all: $(ALL)
 
@@ -15,11 +15,11 @@ all: $(ALL)
 vdso_bench: vdso_bench.o
 	$(CC) $(ALL_CFLAGS) -o $@ $(filter %.o,$^) -lpthread
 
-depend:
-	@$(CC) -MM $(ALL_CFLAGS) *.c 1> .depend
+vdso_bench_paca: vdso_bench.c
+	$(CC) $(PACA_FLAGS) $(ALL_CFLAGS) -o $@ $(filter %.c,$^) -lpthread
 
 clean:
-	-rm -f *.o $(PROGS) .depend
+	-rm -f *.o $(PROGS) .depend 
 
 ifneq ($(wildcard .depend),)
 include .depend

@@ -7,7 +7,7 @@
 #include <stdlib.h>
 #include <stdbool.h>
 #include <unistd.h>
-
+#include <stdint.h>
 
 /* Create a single thread that run clock_gettime() with different clockids,
  * and report the number of operations per second
@@ -95,7 +95,7 @@ static uint64_t gettime_asm(__attribute__((unused)) uint32_t per_ms) {
  * any PACA instruction
  */
 pid_t getpid_raw(void) {
-	pid_t pid;
+	uint64_t pid;
 
 	/* On ARM64:
 	* - System call number for getpid is 172 (goes in x8)
