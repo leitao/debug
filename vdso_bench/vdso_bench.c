@@ -74,12 +74,6 @@ static uint64_t gettime_asm() {
 	/* Checking both of reads at the same time */
 	return get_cntvct() * read_cntfrq_el0();
 }
-#else
-static uint64_t gettime_asm() {
-	return 0;
-}
-#endif
-
 
 /*
  * Test without libc to make sure libc is not introducing
@@ -104,6 +98,16 @@ pid_t getpid_raw(void) {
 
 	return pid;
 }
+
+#else
+static uint64_t gettime_asm() {
+	return 0;
+}
+pid_t getpid_raw(void) {
+	return 0;
+}
+#endif
+
 
 // #define USE_LIBC_SYSCALL 1
 #define USE_RAW_SYSCALL 1
