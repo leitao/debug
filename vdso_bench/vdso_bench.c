@@ -13,9 +13,6 @@
  * and report the number of operations per second
  */
 
-/* Comment this one to compile on x86 */
-/* #define CONFIG_ARM */
-
 /* From linux/time.h */
 #define CLOCK_REALTIME                  0
 #define CLOCK_MONOTONIC                 1
@@ -27,7 +24,7 @@
 #define CLOCK_BOOTTIME                  7
 #define CLOCK_REALTIME_ALARM            8
 #define CLOCK_BOOTTIME_ALARM            9
-#define CLOCK_HACK			10
+#define get_cntvct			10
 
 char *clock_names[] = {
 	"CLOCK_REALTIME",
@@ -40,7 +37,7 @@ char *clock_names[] = {
 	"CLOCK_BOOTTIME",
 	"CLOCK_REALTIME_ALARM",
 	"CLOCK_BOOTTIME_ALARM",
-	"rmikey code (aarch64 specific code)",
+	"get_cntvct",
 };
 
 
@@ -56,35 +53,29 @@ struct thread_data {
 typedef unsigned long *(*thread_func)(void *);
 
 volatile bool stopping = false;
-uint32_t ticks_per_interval = 0;
 
 #if defined(CONFIG_ARM)
-static inline uint32_t read_cntfrq_el0() {
+static inline uint64_t get_cntvct() {
 	uint64_t val;
-	__asm__ __volatile__("mrs %0, cntfrq_el0" : "=r" (val));
-	return val & 0xffffffff;
-}
-
-static inline uint32_t read_cntvct_el0() {
-	uint64_t val;
-	__asm__ __volatile__("mrs %0, cntvct_el0" : "=r" (val));
+	asm volatile("mrs %0, cntvct_el0" : "=r"(val));
 	return val;
 }
 
 
+static inline uint32_t read_cntfrq_el0() {
+  uint64_t val;
+  asm volatile("mrs %0, cntfrq_el0" : "=r" (val));
+  return val & 0xffffffff;
+}
+
+
 /* asm function from rmikey */
-static uint64_t gettime_asm(uint32_t per_ms) {
-	uint64_t cval;
-
-	if (ticks_per_interval == 0)
-		ticks_per_interval = (read_cntfrq_el0() / 1000) * per_ms;
-
-	cval = read_cntvct_el0();
-
-	return ticks_per_interval & cval;
+static uint64_t gettime_asm() {
+	/* Checking both of reads at the same time */
+	return get_cntvct() * read_cntfrq_el0();
 }
 #else
-static uint64_t gettime_asm(__attribute__((unused)) uint32_t per_ms) {
+static uint64_t gettime_asm() {
 	return 0;
 }
 #endif
@@ -153,7 +144,7 @@ unsigned long *get_time(void *_td) {
 
 	while (!stopping) {
 		if (clock == 10) {
-			gettime_asm(1);
+			gettime_asm();
 		} else {
 			result = clock_gettime(clock, &ts);
 		}
@@ -188,7 +179,6 @@ float create_threads(int thread_count, int secs, thread_func func, struct thread
 	for (int i = 0 ; i < thread_count; i++) {
 		ret = pthread_create(&threads[i], NULL, (void *)func, td);
 		if (ret) {
-			perror("");
 			fprintf(stderr, "pthread_create failed: %d\n", ret);
 			return -1;
 		}
@@ -196,7 +186,7 @@ float create_threads(int thread_count, int secs, thread_func func, struct thread
         sleep(secs);
         stopping = true;
 	for (int i = 0 ; i < thread_count; i++) {
-		int count_per_thread = 0;
+		unsigned long count_per_thread = 0;
 
 		pthread_join(threads[i], (void **)&counts[i]);
 		if (!counts[i]) {
@@ -217,10 +207,9 @@ void run_for_secs(int thread_count, int secs, thread_func func, struct thread_da
 	float calls_per_s;
 
 	calls_per_s = create_threads(thread_count, secs, func, td);
-
 	switch(td->type) {
 		case (GETTIME):
-			printf("Number of calls to %s : %.2f M/s per thread\n", clock_names[td->clockid], calls_per_s / thread_count);
+			printf("Number of calls to %s (%d) : %.2f M/s per thread\n", clock_names[td->clockid],  td->clockid, calls_per_s / thread_count);
 			break;
 		case (SYSCALL):
 			printf("Number of calls to getpid(2) : %.2f M/s per thread\n", calls_per_s / thread_count);
@@ -280,23 +269,27 @@ int main(int argc, char **argv)
 			case 's':
 				syscall_only = true;
 				break;
-
 		}
 	}
 
 
 	printf("running %d threads for %d seconds\n", threads_count, timeout);
 
-	td.type = SYSCALL;
-	run_for_secs(threads_count, timeout, get_pid, &td);
+	/* Execute syscall test if no parameter is passed
+	 * or syscall_only
+	 */
+	if (syscall_only || clockid == -1) {
+		td.type = SYSCALL;
+		run_for_secs(threads_count, timeout, get_pid, &td);
+		if (syscall_only)
+			return 0;
+	}
 
-	if (syscall_only)
-		return 0;
-
+	/* Test clock time primitives */
 	td.type = GETTIME;
 	if (clockid == -1) {
 		/* by default, do not run all types*/
-		for (int i = 0; i <= 8; i++) {
+		for (int i = 0; i <= 10; i++) {
 			td.clockid = i;
 			run_for_secs(threads_count, timeout, get_time, &td);
 		}
