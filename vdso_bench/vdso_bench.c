@@ -109,15 +109,15 @@ pid_t getpid_raw(void) {
 #endif
 
 
-// #define USE_LIBC_SYSCALL 1
-#define USE_RAW_SYSCALL 1
+#define USE_LIBC_SYSCALL 1
+/* #define USE_RAW_SYSCALL 1 */
 
 unsigned long *get_pid() {
 	unsigned long count = 0;
 	unsigned long *ret;
 
 	while (!stopping) {
-#ifdef USING_LIBC
+#ifdef USE_LIBC_SYSCALL
 		pid_t pid = getpid();
 #elif USE_RAW_SYSCALL
 		pid_t pid = getpid_raw();
@@ -151,11 +151,11 @@ unsigned long *get_time(void *_td) {
 			gettime_asm();
 		} else {
 			result = clock_gettime(clock, &ts);
-		}
-		if (result != 0) {
-			fprintf(stderr, "Error getting time through clock_gettime (clockid_t = %s). clock_gettime(2) returned = %d\n", clock_names[clock], result);
-			stopping = true;
-			return NULL;
+			if (result != 0) {
+				fprintf(stderr, "Error getting time through clock_gettime (clockid_t = %s). clock_gettime(2) returned = %d\n", clock_names[clock], result);
+				stopping = true;
+				return NULL;
+			}
 		}
 		count += 1;
 	}
