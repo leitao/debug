@@ -7,7 +7,7 @@
 #include <stdlib.h>
 #include <stdbool.h>
 #include <unistd.h>
-#include <stdint.h>
+#include <string.h>
 
 /* Meassure context switch benchmark */
 
@@ -107,7 +107,7 @@ static double measure_getpid_x86(double frequency)
 #error "No architecture set"
 #endif
 
-#define MEGA 1e6
+#define COUNT 1000000
 
 static double get_frequency()
 {
@@ -127,21 +127,46 @@ static double measure_getpid(double frequency)
 #endif
 }
 
+int compare(const void *a, const void *b) {
+	double x = *(double*)a;
+	double y = *(double*)b;
+
+	if (x < y) return -1;
+	if (x > y) return 1;
+	return 0;
+}
+
+static void print_data(double avg, double *array)
+{
+	qsort(array, COUNT, sizeof(double), compare);
+	printf("Average = %.2f ns", avg);
+	printf("\t- Median: %.2f ns", array[COUNT / 2]);
+	printf("\t- Fastest: %.2f ns", array[0]);
+	printf("\t- Slower: %.2f ns", array[COUNT - 1]);
+	printf("\n");
+}
+
 static void collect_getpid(size_t count)
 {
 	uint64_t acc = 0;
 	double avg = 0;
 	double frequency;
+	double array[COUNT];
 
 	frequency = get_frequency();
 
 	for (size_t i = 0; i < count; i++) {
-		for (size_t x = 0 ; x < MEGA; x++) {
-			acc += measure_getpid(frequency);
+		for (size_t j = 0 ; j < COUNT; j++) {
+			array[j] = measure_getpid(frequency);
+			acc += array[j];
 		}
 
-		avg = acc / MEGA;
-		printf("Average= %.2f ns\n", avg);
+		/* Use the first iteration as warmup */
+		if (i == 0)
+			continue;
+
+		avg = acc / COUNT;
+		print_data(avg, array);
 		acc = 0;
 	}
 }

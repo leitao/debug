@@ -15,7 +15,7 @@ ctx_bench: ctx_bench.o
 	$(CC) $(ALL_CFLAGS) -o $@ $(filter %.o,$^) -lpthread
 
 clean:
-	-rm -f *.o $(PROGS) .depend 
+	-rm -f *.o $(PROGS) .depend
 
 ifneq ($(wildcard .depend),)
 include .depend
