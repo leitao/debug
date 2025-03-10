@@ -3,7 +3,7 @@ CFLAGS  = -Wall -O2 -g -W
 ALL_CFLAGS = $(CFLAGS) -D_GNU_SOURCE -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64
 
 # Compilation targets
-PROGS = ctx_bench_arm
+PROGS = ctx_bench
 ALL = $(PROGS)
 
 all: $(ALL)
@@ -11,7 +11,7 @@ all: $(ALL)
 %.o: %.c
 	$(CC) -o $*.o -c $(ALL_CFLAGS) $<
 
-ctx_bench_arm: ctx_bench_arm.o
+ctx_bench: ctx_bench.o
 	$(CC) $(ALL_CFLAGS) -o $@ $(filter %.o,$^) -lpthread
 
 clean:
