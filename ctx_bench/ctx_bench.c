@@ -143,10 +143,10 @@ int compare(const void *a, const void *b) {
 static void print_data(double avg, double *array)
 {
 	qsort(array, COUNT, sizeof(double), compare);
-	printf("Fastest: %.2f ns", array[0]);
+	printf("Min: %.2f ns", array[0]);
 	printf("\t- Median: %.2f ns", array[COUNT / 2]);
 	printf("\t- Average = %.2f ns", avg);
-	printf("\t- Slower: %.2f ns", array[COUNT - 1]);
+	printf("\t- Max: %.2f ns", array[COUNT - 1]);
 	printf("\n");
 }
 
