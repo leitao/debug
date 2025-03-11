@@ -57,11 +57,15 @@ uint64_t cycles_x86(uint32_t *cpu_id)
 	return ((uint64_t)hi << 32) | lo;
 }
 
+/* This one should match the CPU frequency:
+ * cat /proc/cpuinfo | grep "cpu MHz"
+ */
 double get_cpu_frequency_x86() {
 	uint32_t cpu0, cpu1;
 	uint64_t t0, t1;
 
 	do {
+		printf("Calibrating TSC...\n");
 		// Get start timestamp
 		t0 = cycles_x86(&cpu0);
 
@@ -139,21 +143,22 @@ int compare(const void *a, const void *b) {
 static void print_data(double avg, double *array)
 {
 	qsort(array, COUNT, sizeof(double), compare);
-	printf("Average = %.2f ns", avg);
+	printf("Fastest: %.2f ns", array[0]);
 	printf("\t- Median: %.2f ns", array[COUNT / 2]);
-	printf("\t- Fastest: %.2f ns", array[0]);
+	printf("\t- Average = %.2f ns", avg);
 	printf("\t- Slower: %.2f ns", array[COUNT - 1]);
 	printf("\n");
 }
 
 static void collect_getpid(size_t count)
 {
+	double array[COUNT];
+	double frequency;
 	uint64_t acc = 0;
 	double avg = 0;
-	double frequency;
-	double array[COUNT];
 
 	frequency = get_frequency();
+	printf("Frequency: %f\n", frequency);
 
 	for (size_t i = 0; i < count; i++) {
 		for (size_t j = 0 ; j < COUNT; j++) {
@@ -162,7 +167,7 @@ static void collect_getpid(size_t count)
 		}
 
 		/* Use the first iteration as warmup */
-		if (i == 0)
+		if (i < 2)
 			continue;
 
 		avg = acc / COUNT;
@@ -171,17 +176,30 @@ static void collect_getpid(size_t count)
 	}
 }
 
+void print_help(const char *name)
+{
+	fprintf(stderr, "usage: %s <options>\n", name);
+	fprintf(stderr, "\t -i \t\t Run in non-stop mode\n");
+	fprintf(stderr, "\t -c <count> \t Run <count> iterations\n");
+
+	exit(1);
+}
 int main(int argc, char **argv)
 {
-	size_t count = 5;
+	size_t count = 10;
 	int arg;
 
-	while ((arg = getopt (argc, argv, "ht:p:c:s")) != -1) {
+	while ((arg = getopt (argc, argv, "c:ih")) != -1) {
 		switch (arg)
                 {
 			case 'c':
                                 count = atoi(optarg);
                                 break;
+			case 'i':
+                                count = SIZE_MAX;
+                                break;
+			case 'h':
+                                print_help(argv[0]);
 		}
 	}
 
