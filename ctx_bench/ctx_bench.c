@@ -131,7 +131,7 @@ static double measure_getpid(double frequency)
 #endif
 }
 
-int compare(const void *a, const void *b) {
+static int compare(const void *a, const void *b) {
 	double x = *(double*)a;
 	double y = *(double*)b;
 
@@ -140,22 +140,39 @@ int compare(const void *a, const void *b) {
 	return 0;
 }
 
+static void print_percentiles(double *array)
+{
+	double numbers[] = {50, 90, 95, 99, 99.5, 99.8, 99.9};
+	int length = sizeof(numbers) / sizeof(double);
+
+	for (int i =0; i < length; i++) {
+		int idx = numbers[i] * (COUNT/100);
+		printf("\t- p%.1f = %.2f ns", numbers[i], array[idx]);
+	}
+}
+
 static void print_data(double avg, double *array)
 {
 	qsort(array, COUNT, sizeof(double), compare);
 	printf("Min: %.2f ns", array[0]);
-	printf("\t- Median: %.2f ns", array[COUNT / 2]);
+	/* printf("\t- p50: %.2f ns", array[COUNT / 2]); */
 	printf("\t- Average = %.2f ns", avg);
+	print_percentiles(array);
 	printf("\t- Max: %.2f ns", array[COUNT - 1]);
 	printf("\n");
 }
 
 static void collect_getpid(size_t count)
 {
-	double array[COUNT];
+	double *array = malloc(COUNT * sizeof(double));
 	double frequency;
 	uint64_t acc = 0;
 	double avg = 0;
+
+	if (!array) {
+		fprintf(stderr, "Unable to allocate memory\n");
+		exit(-1);
+	}
 
 	frequency = get_frequency();
 	printf("Frequency: %f\n", frequency);
@@ -167,13 +184,15 @@ static void collect_getpid(size_t count)
 		}
 
 		/* Use the first iteration as warmup */
-		if (i < 2)
+		if (i % 2)
 			continue;
 
 		avg = acc / COUNT;
 		print_data(avg, array);
 		acc = 0;
 	}
+
+	free(array);
 }
 
 void print_help(const char *name)
@@ -186,7 +205,7 @@ void print_help(const char *name)
 }
 int main(int argc, char **argv)
 {
-	size_t count = 10;
+	size_t count = 20;
 	int arg;
 
 	while ((arg = getopt (argc, argv, "c:ih")) != -1) {
