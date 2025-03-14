@@ -1,11 +1,12 @@
 #!/usr/bin/env bpftrace
-
 kfunc:handle_mm_fault
 {
 	@pagefault_start[tid] = nsecs;
 	@pagefault_flags[tid] = args->flags;
 	@pagefault_vma_flags[tid] = args->vma->vm_flags;
 }
+
+
 
 kretfunc:handle_mm_fault /@pagefault_flags[tid]/
 {
@@ -22,7 +23,25 @@ kretfunc:handle_mm_fault /@pagefault_flags[tid]/
 	printf("VMA flags: %x\n", @pagefault_vma_flags[tid]);
     }
 
-    delete(@pagefault_start[tid])
-    delete(@pagefault_vma_flags[tid])
-    delete(@pagefault_flag[stid])
+    if (@pagefault_start[tid]) {
+	delete(@pagefault_start[tid]);
+    }
+    if (@pagefault_vma_flags[tid]) {
+	delete(@pagefault_vma_flags[tid]);
+    }
+    if (@pagefault_flags[tid]) {
+	delete(@pagefault_flags[tid]);
+    }
 }
+
+/* vma flags are */
+/* ##define VM_NONE         0x00000000 */
+/* ##define VM_READ         0x00000001      /1* currently active flags *1/ */
+/* ##define VM_WRITE        0x00000002 */
+/* ##define VM_EXEC         0x00000004 */
+/* ##define VM_SHARED       0x00000008 */
+/* #/1* mprotect() hardcodes VM_MAYREAD >> 4 == VM_READ, and so for r/w/x bits. *1/ */
+/* ##define VM_MAYREAD      0x00000010      /1* limits for mprotect() etc *1/ */
+/* ##define VM_MAYWRITE     0x00000020 */
+/* ##define VM_MAYEXEC      0x00000040 */
+/* ##define VM_MAYSHARE     0x00000080 */
