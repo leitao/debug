@@ -1,4 +1,10 @@
 #!/usr/bin/env bpftrace
+
+/* Print information about long page faults
+ * Usage: trace_long_page_faults.bt <limit (in ns)>
+ *
+ * It will print information about page faults that took longer tham `limit`
+ */
 kfunc:handle_mm_fault
 {
 	@pagefault_start[tid] = nsecs;
@@ -10,15 +16,11 @@ kfunc:handle_mm_fault
 kretfunc:handle_mm_fault /@pagefault_flags[tid]/
 {
     $duration = nsecs - @pagefault_start[tid];
-    delete(@pagefault_start[tid]);
-
     $flags = @pagefault_flags[tid];
-    delete(@pagefault_flags[tid]);
-
     $duration = $duration/1000000;
 
     if ($duration > $2) {
-	printf("%s : : %s (%d) : (duration: %d ns)\n", strftime("%H:%M:%S:%f", nsecs),  comm, curtask->prio, $duration);
+	printf("%s : %s (%d) : (duration: %d ns)\n", strftime("%H:%M:%S:%f", nsecs),  comm, curtask->prio, $duration);
 
 	$flags = @pagefault_vma_flags[tid];
 	if ($flags & 0x00000001) { printf("  VM_READ\n"); }
