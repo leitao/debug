@@ -7,7 +7,6 @@ kfunc:handle_mm_fault
 }
 
 
-
 kretfunc:handle_mm_fault /@pagefault_flags[tid]/
 {
     $duration = nsecs - @pagefault_start[tid];
@@ -19,8 +18,22 @@ kretfunc:handle_mm_fault /@pagefault_flags[tid]/
     $duration = $duration/1000000;
 
     if ($duration > $2) {
-	printf("%s : flags %x : %s (%d) : (%d)\n", strftime("%H:%M:%S:%f", nsecs), $flags, comm, curtask->prio, $duration);
-	printf("VMA flags: %x\n", @pagefault_vma_flags[tid]);
+	printf("%s : : %s (%d) : (duration: %d ns)\n", strftime("%H:%M:%S:%f", nsecs),  comm, curtask->prio, $duration);
+
+	$flags = @pagefault_vma_flags[tid];
+	if ($flags & 0x00000001) { printf("  VM_READ\n"); }
+	if ($flags & 0x00000002) { printf("  VM_WRITE\n"); }
+	if ($flags & 0x00000004) { printf("  VM_EXEC\n"); }
+	if ($flags & 0x00000008) { printf("  VM_SHARED\n"); }
+
+	// Protection limits for mprotect()
+	if ($flags & 0x00000010) { printf("  VM_MAYREAD\n"); }
+	if ($flags & 0x00000020) { printf("  VM_MAYWRITE\n"); }
+	if ($flags & 0x00000040) { printf("  VM_MAYEXEC\n"); }
+	if ($flags & 0x00000080) { printf("  VM_MAYSHARE\n"); }
+	if ($flags & 0x00100000) { printf("  VM_ACCOUNT\n"); }
+	if ($flags & 0x00200000) { printf("  VM_NORESERVE\n"); }
+	if ($flags & 0x00400000) { printf("  VM_HUGETLB\n"); }
     }
 
     if (@pagefault_start[tid]) {
@@ -34,14 +47,3 @@ kretfunc:handle_mm_fault /@pagefault_flags[tid]/
     }
 }
 
-/* vma flags are */
-/* ##define VM_NONE         0x00000000 */
-/* ##define VM_READ         0x00000001      /1* currently active flags *1/ */
-/* ##define VM_WRITE        0x00000002 */
-/* ##define VM_EXEC         0x00000004 */
-/* ##define VM_SHARED       0x00000008 */
-/* #/1* mprotect() hardcodes VM_MAYREAD >> 4 == VM_READ, and so for r/w/x bits. *1/ */
-/* ##define VM_MAYREAD      0x00000010      /1* limits for mprotect() etc *1/ */
-/* ##define VM_MAYWRITE     0x00000020 */
-/* ##define VM_MAYEXEC      0x00000040 */
-/* ##define VM_MAYSHARE     0x00000080 */
