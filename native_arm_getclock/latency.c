@@ -1,10 +1,9 @@
 #define _POSIX_C_SOURCE 199309L
+#include <inttypes.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <sys/time.h>
 #include <time.h> // Ensure this is included
-#include <inttypes.h>
-
 
 static inline uint64_t get_cntvct() {
   uint64_t val;
@@ -40,7 +39,8 @@ int main() {
   }
   end = get_cntvct();
   cycles = end - start;
-  printf("clock_gettime(CLOCK_MONOTONIC_COARSE) Average Cycles: %" PRIu64 "\n", cycles / 1000000);
+  printf("clock_gettime(CLOCK_MONOTONIC_COARSE) Average Cycles: %" PRIu64 "\n",
+         cycles / 1000000);
 
   // Benchmark clock_gettime(REALTIME)
   start = get_cntvct();
@@ -50,11 +50,11 @@ int main() {
   end = get_cntvct();
   cycles = end - start;
 
-  printf("clock_gettime(CLOCK_REALTIME) Average Cycles: %" PRIu64 "\n", cycles / 1000000);
+  printf("clock_gettime(CLOCK_REALTIME) Average Cycles: %" PRIu64 "\n",
+         cycles / 1000000);
 
   if (tmp < 1)
-	printf("%" PRIu64 "\n", tmp);
-
+    printf("%" PRIu64 "\n", tmp);
 
   return 0;
 }
