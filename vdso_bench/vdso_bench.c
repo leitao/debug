@@ -24,7 +24,7 @@
 #define CLOCK_BOOTTIME                  7
 #define CLOCK_REALTIME_ALARM            8
 #define CLOCK_BOOTTIME_ALARM            9
-#define get_cntvct			10
+#define NATIVE_READ			10
 
 char *clock_names[] = {
 	"CLOCK_REALTIME",
@@ -53,8 +53,10 @@ struct thread_data {
 typedef unsigned long *(*thread_func)(void *);
 
 volatile bool stopping = false;
+#define CONFIG_ARM 1
 
-#if defined(CONFIG_ARM)
+#ifdef CONFIG_ARM
+
 static inline uint64_t get_cntvct() {
 	uint64_t val;
 	asm volatile("mrs %0, cntvct_el0" : "=r"(val));
