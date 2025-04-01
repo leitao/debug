@@ -48,6 +48,7 @@ enum test_type {
 struct thread_data {
 	enum test_type type;
         clockid_t clockid;
+        bool isb;
 };
 
 typedef unsigned long *(*thread_func)(void *);
@@ -56,6 +57,10 @@ volatile bool stopping = false;
 #define CONFIG_ARM 1
 
 #ifdef CONFIG_ARM
+
+// Coming from kernel arch/arm64/include/asm/barrier.h
+#define isb()           asm volatile("isb" : : : "memory")
+
 
 static inline uint64_t get_cntvct() {
 	uint64_t val;
@@ -72,8 +77,11 @@ static inline uint32_t read_cntfrq_el0() {
 
 
 /* asm function from rmikey */
-static uint64_t gettime_asm() {
+static uint64_t gettime_asm(bool isb_enabled) {
 	/* Checking both of reads at the same time */
+	if (isb_enabled) {
+		isb();
+	}
 	return get_cntvct() * read_cntfrq_el0();
 }
 
@@ -102,7 +110,7 @@ pid_t getpid_raw(void) {
 }
 
 #else
-static uint64_t gettime_asm() {
+static uint64_t gettime_asm(bool isb) {
 	return 0;
 }
 pid_t getpid_raw(void) {
@@ -150,7 +158,7 @@ unsigned long *get_time(void *_td) {
 
 	while (!stopping) {
 		if (clock == 10) {
-			gettime_asm();
+			gettime_asm(td->isb);
 		} else {
 			result = clock_gettime(clock, &ts);
 			if (result != 0) {
@@ -231,6 +239,7 @@ void print_help(const char *name)
 	fprintf(stderr, "%s <arguments>:\n", name);
 	fprintf(stderr, "	-h                 : This help\n");
 	fprintf(stderr, "	-s       	   : Only test the syscall benchmark\n");
+	fprintf(stderr, "	-i       	   : Call `isb` before for `cntvct_el0` clock.\n");
 	fprintf(stderr, "	-t <seconds>       : Time running the clock_gettime() in a thread in a loop\n");
 	fprintf(stderr, "	-p <threads_count> : Number of threads running clock_gettime() in a loop\n");
 	fprintf(stderr, "	-c <clockid>       : clock id argument\n");
@@ -254,9 +263,9 @@ int main(int argc, char **argv)
 	int arg;
 	bool syscall_only = false;
 
-	struct thread_data td;
+	struct thread_data td = {};
 
-	while ((arg = getopt (argc, argv, "ht:p:c:s")) != -1) {
+	while ((arg = getopt (argc, argv, "ht:p:c:si")) != -1) {
 		switch (arg)
 		{
 			case 'h':
@@ -274,6 +283,9 @@ int main(int argc, char **argv)
 				break;
 			case 's':
 				syscall_only = true;
+				break;
+			case 'i':
+				td.isb = true;
 				break;
 		}
 	}
