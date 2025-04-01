@@ -1,4 +1,4 @@
-i#include <stdio.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <pthread.h>
 
@@ -10,22 +10,24 @@ typedef struct {
 
 vals_t vals;
 
-void *thread1_func(void *arg) {
+#define __unused __attribute__((unused))
+
+void *thread1_func(void __unused *arg) {
     asm volatile("stilp x0, x1, [%[addr]]"
                  : : [addr] "r" (&vals)
                  : "x0", "x1");
     return NULL;
 }
 
-void *thread2_func(void *arg) {
+void *thread2_func(void __unused *arg) {
     // Read both locations atomically using LDIAPP
-    vals_t local_vals;
+    /* vals_t local_vals; */
 
-    asm volatile("ldiapp %0, %1, [%[addr]]"
-                 : "=r" (local_vals.val1), "=r" (local_vals.val2)
-                 : [addr] "r" (&vals));
+    /* asm volatile("ldiapp %0, %1, [%[addr]]" */
+    /*              : "=r" (local_vals.val1), "=r" (local_vals.val2) */
+    /*              : [addr] "r" (&vals)); */
 
-    printf("Thread 2 read: val1 = %d, val2 = %d\n", local_vals.val1, local_vals.val2);
+    /* printf("Thread 2 read: val1 = %d, val2 = %d\n", local_vals.val1, local_vals.val2); */
 
     return NULL;
 }
