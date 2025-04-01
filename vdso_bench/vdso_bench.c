@@ -45,10 +45,16 @@ enum test_type {
 	SYSCALL = 1,
 	GETTIME
 };
+
+typedef enum barrier {
+	ISB = 1,
+	SB,
+} barrier_t;
+
 struct thread_data {
 	enum test_type type;
         clockid_t clockid;
-        bool isb;
+        barrier_t barrier;
 };
 
 typedef unsigned long *(*thread_func)(void *);
@@ -77,10 +83,12 @@ static inline uint32_t read_cntfrq_el0() {
 
 
 /* asm function from rmikey */
-static uint64_t gettime_asm(bool isb_enabled) {
+static uint64_t gettime_asm(barrier_t b) {
 	/* Checking both of reads at the same time */
-	if (isb_enabled) {
+	if (b & ISB) {
 		isb();
+	} else if (b & SB) {
+		printf("broken\n");
 	}
 	return get_cntvct() * read_cntfrq_el0();
 }
@@ -110,7 +118,7 @@ pid_t getpid_raw(void) {
 }
 
 #else
-static uint64_t gettime_asm(bool isb) {
+static uint64_t gettime_asm(enum barrier b) {
 	return 0;
 }
 pid_t getpid_raw(void) {
@@ -158,7 +166,7 @@ unsigned long *get_time(void *_td) {
 
 	while (!stopping) {
 		if (clock == 10) {
-			gettime_asm(td->isb);
+			gettime_asm(td->barrier);
 		} else {
 			result = clock_gettime(clock, &ts);
 			if (result != 0) {
@@ -285,7 +293,7 @@ int main(int argc, char **argv)
 				syscall_only = true;
 				break;
 			case 'i':
-				td.isb = true;
+				td.barrier = ISB;
 				break;
 		}
 	}
