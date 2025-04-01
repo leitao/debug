@@ -1,6 +1,6 @@
 CC      = clang
 CFLAGS  = -Wall -O2 -g -W
-ALL_CFLAGS = $(CFLAGS) -D_GNU_SOURCE -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64
+ALL_CFLAGS = $(CFLAGS) -D_GNU_SOURCE -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64  -march=armv9-a
 PACA_FLAGS =-mbranch-protection=pac-ret+bti  -march=armv8.7-a
 
 # Compilation targets

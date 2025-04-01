@@ -66,6 +66,7 @@ volatile bool stopping = false;
 
 // Coming from kernel arch/arm64/include/asm/barrier.h
 #define isb()           asm volatile("isb" : : : "memory")
+#define sb()            asm volatile("sb" : : : "memory")
 
 
 static inline uint64_t get_cntvct() {
@@ -88,7 +89,7 @@ static uint64_t gettime_asm(barrier_t b) {
 	if (b & ISB) {
 		isb();
 	} else if (b & SB) {
-		printf("broken\n");
+		sb();
 	}
 	return get_cntvct() * read_cntfrq_el0();
 }
@@ -248,6 +249,7 @@ void print_help(const char *name)
 	fprintf(stderr, "	-h                 : This help\n");
 	fprintf(stderr, "	-s       	   : Only test the syscall benchmark\n");
 	fprintf(stderr, "	-i       	   : Call `isb` before for `cntvct_el0` clock.\n");
+	fprintf(stderr, "	-b       	   : Call `sb` before for `cntvct_el0` clock.\n");
 	fprintf(stderr, "	-t <seconds>       : Time running the clock_gettime() in a thread in a loop\n");
 	fprintf(stderr, "	-p <threads_count> : Number of threads running clock_gettime() in a loop\n");
 	fprintf(stderr, "	-c <clockid>       : clock id argument\n");
@@ -273,7 +275,7 @@ int main(int argc, char **argv)
 
 	struct thread_data td = {};
 
-	while ((arg = getopt (argc, argv, "ht:p:c:si")) != -1) {
+	while ((arg = getopt (argc, argv, "ht:p:c:sib")) != -1) {
 		switch (arg)
 		{
 			case 'h':
@@ -295,11 +297,18 @@ int main(int argc, char **argv)
 			case 'i':
 				td.barrier = ISB;
 				break;
+			case 'b':
+				td.barrier = SB;
+				break;
 		}
 	}
 
 
 	printf("running %d threads for %d seconds\n", threads_count, timeout);
+	if (td.barrier && clockid != 10) {
+		fprintf(stderr, "Barriers parameter is only valid for getcnt clockid\n");
+		exit(-1);
+	}
 
 	/* Execute syscall test if no parameter is passed
 	 * or syscall_only
