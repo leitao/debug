@@ -76,9 +76,9 @@ static inline uint64_t get_cntvct() {
 
 
 static inline uint32_t read_cntfrq_el0() {
-  uint64_t val;
-  asm volatile("mrs %0, cntfrq_el0" : "=r" (val));
-  return val & 0xffffffff;
+	uint64_t val;
+	asm volatile("mrs %0, cntfrq_el0" : "=r" (val));
+	return val & 0xffffffff;
 }
 
 
@@ -90,6 +90,7 @@ static uint64_t gettime_asm(barrier_t b) {
 	} else if (b & SB) {
 		sb();
 	}
+	/* assuming that we need to read frequency at every time */
 	return get_cntvct() * read_cntfrq_el0();
 }
 
@@ -228,15 +229,19 @@ float create_threads(int thread_count, int secs, thread_func func, struct thread
 
 void run_for_secs(int thread_count, int secs, thread_func func, struct thread_data *td)
 {
-	float calls_per_s;
+	double throughput, calls_per_s, latency;
+
 
 	calls_per_s = create_threads(thread_count, secs, func, td);
+	throughput = calls_per_s/ thread_count;
+	latency = 1000/(throughput); // in ns
+
 	switch(td->type) {
 		case (GETTIME):
-			printf("Number of calls to %s (%d) : %.2f M/s per thread\n", clock_names[td->clockid],  td->clockid, calls_per_s / thread_count);
+			printf("Number of calls to %s (%d) : %.2f M/s per thread. Latency: %.2f ns\n", clock_names[td->clockid],  td->clockid, throughput, latency);
 			break;
 		case (SYSCALL):
-			printf("Number of calls to getpid(2) : %.2f M/s per thread\n", calls_per_s / thread_count);
+			printf("Number of calls to getpid(2) : %.2f M/s per thread. Latecy %.2f ns\n", throughput, latency);
 			break;
 	}
 }
