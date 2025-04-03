@@ -97,51 +97,53 @@ static uint64_t gettime_asm(barrier_t b) {
  * Test without libc to make sure libc is not introducing
  * any PACA instruction
  */
-pid_t getpid_raw(void) {
-	uint64_t pid;
+/* pid_t getpid_raw(void) { */
+/* 	uint64_t pid; */
 
-	/* On ARM64:
-	* - System call number for getpid is 172 (goes in x8)
-	* - Return value comes in x0
-	* - svc #0 is the instruction to trigger the system call
-	*/
-	asm volatile(
-		"mov x8, #172\n"  /* System call number for getpid */
-		"svc #0\n"        /* Trigger system call */
-		"mov %0, x0"      /* Store return value to pid */
-		: "=r" (pid)      /* Output: pid gets assigned the value from x0 */
-		:                 /* No input registers */
-		: "x8", "x0"      /* Clobbered registers */
-	);
+/* 	/1* On ARM64: */
+/* 	* - System call number for getpid is 172 (goes in x8) */
+/* 	* - Return value comes in x0 */
+/* 	* - svc #0 is the instruction to trigger the system call */
+/* 	*/ */
+/* 	asm volatile( */
+/* 		"mov x8, #172\n"  /1* System call number for getpid *1/ */
+/* 		"svc #0\n"        /1* Trigger system call *1/ */
+/* 		"mov %0, x0"      /1* Store return value to pid *1/ */
+/* 		: "=r" (pid)      /1* Output: pid gets assigned the value from x0 *1/ */
+/* 		:                 /1* No input registers *1/ */
+/* 		: "x8", "x0"      /1* Clobbered registers *1/ */
+/* 	); */
 
-	return pid;
-}
+/* 	return pid; */
+/* } */
 
 #else
-static uint64_t gettime_asm(enum barrier b) {
-	return b;
-}
-pid_t getpid_raw(void) {
-	return 0;
+static uint64_t gettime_asm(enum barrier b)
+{
+    uint32_t low, high;
+
+    if (b)
+	asm volatile("mfence" ::: "memory");
+
+    /*
+     * The rdtsc instruction loads the current value of the processor's
+     * time-stamp counter into EDX:EAX (high:low)
+     */
+    asm volatile("rdtsc" : "=a" (low), "=d" (high));
+
+    /* Combine the two 32-bit values into a 64-bit result */
+    return ((uint64_t)high << 32) | low;
 }
 #endif
 
-
 #define USE_LIBC_SYSCALL 1
-/* #define USE_RAW_SYSCALL 1 */
 
 unsigned long *get_pid() {
 	unsigned long count = 0;
 	unsigned long *ret;
 
 	while (!stopping) {
-#ifdef USE_LIBC_SYSCALL
 		pid_t pid = getpid();
-#elif USE_RAW_SYSCALL
-		pid_t pid = getpid_raw();
-#else
-#error "No clear how to call syscall"
-#endif
 		// Hack to avoid compiler optimization
 		if (pid)
 			count += 1;
