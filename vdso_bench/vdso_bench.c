@@ -60,7 +60,6 @@ struct thread_data {
 typedef unsigned long *(*thread_func)(void *);
 
 volatile bool stopping = false;
-#define CONFIG_ARM 1
 
 #ifdef CONFIG_ARM
 
@@ -120,7 +119,7 @@ pid_t getpid_raw(void) {
 
 #else
 static uint64_t gettime_asm(enum barrier b) {
-	return 0;
+	return b;
 }
 pid_t getpid_raw(void) {
 	return 0;
