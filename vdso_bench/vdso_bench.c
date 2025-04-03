@@ -94,30 +94,6 @@ static uint64_t gettime_asm(barrier_t b) {
 	return get_cntvct() * read_cntfrq_el0();
 }
 
-/*
- * Test without libc to make sure libc is not introducing
- * any PACA instruction
- */
-/* pid_t getpid_raw(void) { */
-/* 	uint64_t pid; */
-
-/* 	/1* On ARM64: */
-/* 	* - System call number for getpid is 172 (goes in x8) */
-/* 	* - Return value comes in x0 */
-/* 	* - svc #0 is the instruction to trigger the system call */
-/* 	*/ */
-/* 	asm volatile( */
-/* 		"mov x8, #172\n"  /1* System call number for getpid *1/ */
-/* 		"svc #0\n"        /1* Trigger system call *1/ */
-/* 		"mov %0, x0"      /1* Store return value to pid *1/ */
-/* 		: "=r" (pid)      /1* Output: pid gets assigned the value from x0 *1/ */
-/* 		:                 /1* No input registers *1/ */
-/* 		: "x8", "x0"      /1* Clobbered registers *1/ */
-/* 	); */
-
-/* 	return pid; */
-/* } */
-
 #else
 static uint64_t gettime_asm(enum barrier b)
 {
