@@ -55,6 +55,7 @@ struct thread_data {
 	enum test_type type;
         clockid_t clockid;
         barrier_t barrier;
+	bool print;
 };
 
 typedef unsigned long *(*thread_func)(void *);
@@ -106,7 +107,7 @@ static uint64_t gettime_asm(enum barrier b)
      * The rdtsc instruction loads the current value of the processor's
      * time-stamp counter into EDX:EAX (high:low)
      */
-    asm volatile("rdtsc" : "=a" (low), "=d" (high));
+    asm volatile("rdtscp" : "=a" (low), "=d" (high));
 
     /* Combine the two 32-bit values into a 64-bit result */
     return ((uint64_t)high << 32) | low;
@@ -142,6 +143,7 @@ unsigned long *get_time(void *_td) {
 	unsigned long *ret;
 	struct timespec ts;
 	int result;
+	static int printed;
 
 	while (!stopping) {
 		if (clock == 10) {
@@ -153,10 +155,18 @@ unsigned long *get_time(void *_td) {
 				stopping = true;
 				return NULL;
 			}
+			if (td->print && !printed++) {
+				char buff[100];
+				strftime(buff, sizeof buff, "%D %T", gmtime(&ts.tv_sec));
+				printf(" * Current time: %s.%09ld UTC\n", buff, ts.tv_nsec);
+				printf(" * Raw timespec.tv_sec: %jd\n", (intmax_t)ts.tv_sec);
+				printf(" * Raw timespec.tv_nsec: %09ld\n\n", ts.tv_nsec);
+			}
 		}
 		count += 1;
 	}
 
+	printed = 0;
 	ret = malloc(sizeof(unsigned long));;
 	if (!ret) {
 		fprintf(stderr, "Failed to allocate memory\n");
@@ -235,6 +245,7 @@ void print_help(const char *name)
 	fprintf(stderr, "	-t <seconds>       : Time running the clock_gettime() in a thread in a loop\n");
 	fprintf(stderr, "	-p <threads_count> : Number of threads running clock_gettime() in a loop\n");
 	fprintf(stderr, "	-c <clockid>       : clock id argument\n");
+	fprintf(stderr, "	-v		   : verbose (print clock time returened)\n");
 
 	fprintf(stderr, "\t   Supported clock ids\n");
 	for (int i = 0; i <= 10; i++) {
@@ -257,7 +268,7 @@ int main(int argc, char **argv)
 
 	struct thread_data td = {};
 
-	while ((arg = getopt (argc, argv, "ht:p:c:sib")) != -1) {
+	while ((arg = getopt (argc, argv, "ht:p:c:sibv")) != -1) {
 		switch (arg)
 		{
 			case 'h':
@@ -281,6 +292,9 @@ int main(int argc, char **argv)
 				break;
 			case 'b':
 				td.barrier = SB;
+				break;
+			case 'v':
+				td.print = true;
 				break;
 		}
 	}
