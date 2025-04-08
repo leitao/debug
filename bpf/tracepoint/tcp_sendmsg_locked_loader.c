@@ -33,7 +33,7 @@ int main(int argc, char **argv)
     }
 
     /* Find the BPF program */
-    struct bpf_program *prog = bpf_object__find_program_by_name(obj, "bpf_tcp_sendmsg_locked");
+    struct bpf_program *prog = bpf_object__find_program_by_name(obj, "tcp_sendmsg_locked");
     if (!prog) {
         fprintf(stderr, "Failed to find BPF program\n");
         bpf_object__close(obj);
