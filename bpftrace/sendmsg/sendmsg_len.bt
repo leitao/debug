@@ -1,0 +1,36 @@
+#!/usr/bin/env bpftrace
+
+BEGIN {
+    printf("Tracking len parameter of sys_enter_sendmsg...\n");
+}
+
+tracepoint:syscalls:sys_enter_sendmsg
+{
+    // Get a copy of the message
+    $msg = args->msg;
+
+    // the 'msg_iovlen' field, which is the length of the iovec array.
+    // We need to dereference the pointer to access it.
+    $len = $msg->msg_iovlen;
+
+    // Used to count the interation below
+    $i = 0;
+
+    // I wrote this in this crazy way to avoid the BPF verifier 
+    // infinite loop validation. Basically, this check that the loop will not iterate 
+    // more than 10x.
+    while ($i <= 10) {
+	if ($i >= $len) {
+		break;
+	}
+	$iov = $msg->msg_iov[0];
+	@lens = hist($iov.iov_len);
+	$i += 1;
+    }
+}
+
+END {
+    // Print the histogram at the end of the trace
+    printf("\n\nHistogram of sendmsg(2) iovec length (in bytes)");
+    print(@lens);
+}
