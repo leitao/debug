@@ -16,25 +16,22 @@ tracepoint:syscalls:sys_enter_sendmsg
 	// Used to count the interation below
 	$i = 0;
 
-	// I wrote this in this crazy way to avoid the BPF verifier 
-	// infinite loop validation. Basically, this check that the loop will not iterate 
+	// I wrote this in this crazy way to avoid the BPF verifier
+	// infinite loop validation. Basically, this check that the loop will not iterate
 	// more than 10x.
 	while ($i <= 10) {
 		if ($i >= $len) {
 			break;
 		}
 		$iov = $msg->msg_iov[0];
-		@lens = hist($iov.iov_len);
+		@histogram = hist($iov.iov_len);
 		$i += 1;
 	}
 }
 
-interval:s:30 {
-	print(@lens);
-}
-
-END {
-	// Print the histogram at the end of the trace
+interval:s:60 {
 	printf("\n\nHistogram of sendmsg(2) iovec length (in bytes)");
-	print(@lens);
+	print(@histogram);
+	clear(@histogram);
+	exit();
 }
