@@ -6,17 +6,17 @@ sudo mkdir /sys/fs/cgroup/my_memcg
 
 sudo dmesg -c > /dev/null
 
-echo "100M" | sudo tee /sys/fs/cgroup/my_memcg/memory.max
+echo "500M" | sudo tee /sys/fs/cgroup/my_memcg/memory.max
 
 # we want to kill all the processes in the cgroup
 # Without this, the problem doesn't happen
 echo 1 | sudo tee /sys/fs/cgroup/my_memcg/memory.oom.group
 
 make
-for i in $(seq 2000)
+echo "Starting the programs under my_memcg..."
+for i in $(seq 20000)
 do
-	echo -n "."
-	make run &
+	$(make run &) > /dev/null
 done
 # Wait here
 make run
