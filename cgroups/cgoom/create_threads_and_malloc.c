@@ -4,8 +4,8 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 
-#define NUM_CHILDREN 1000
-#define ALLOC_SIZE 1024 * 1024 // 1MB
+#define NUM_CHILDREN 2
+#define ALLOC_SIZE 51 * 1024 // 500K
 			       //
 void allocate_memory_until_oom() {
     void* ptr = NULL;
@@ -16,16 +16,19 @@ void allocate_memory_until_oom() {
             printf("Out of memory! Total allocated: %zu MB\n", total_allocated / (1024 * 1024));
             break;
         }
-	
+
         // "Use" the allocated memory to prevent optimization
         *(char*)ptr = 'x';
         total_allocated += ALLOC_SIZE;
-	sleep(10);
+	sleep(1);
     }
 }
+
 int main() {
     pid_t pid;
     int i;
+    // Sleep to wait for the other processes to start
+    sleep(5);
     for (i = 0; i < NUM_CHILDREN; i++) {
         pid = fork();
         if (pid < 0) {
@@ -37,7 +40,7 @@ int main() {
             exit(EXIT_SUCCESS);
         }
     }
-    // Parent process: wait for all children to finish
+   
     while (wait(NULL) > 0);
     return EXIT_SUCCESS;
 }
