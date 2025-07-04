@@ -20,9 +20,9 @@ cat /sys/fs/cgroup/my_memcg/memory.oom.group
 
 make
 echo "Starting the programs under my_memcg..."
-for i in $(seq 5000)
+for i in $(seq 9000)
 do
-	make run &
+	sudo cgexec -g memory:my_memcg ./create_threads_and_malloc &
 done
-# Wait here
-make run
+
+echo "Bye"

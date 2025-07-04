@@ -1,0 +1,46 @@
+#!env python3
+
+import argparse
+
+
+def find_msb(n):
+    """
+    Using bit_length() - Most Pythonic and efficient
+    """
+    if n == 0:
+        return -1  # No bits set
+    return n.bit_length() - 1
+
+def isset(num, i):
+    bit = 1 << i
+    return bool(num & bit)
+
+def print_header(msb):
+    for i in range(msb, -1, -1):
+        print("{: >4}".format(i), end="")
+        if not i % 4:
+            print("  ", end="")
+    print()
+    print("="*msb*6)
+
+def print_num(num, msb):
+    for i in range(msb, -1, -1):
+        s = isset(num, i)
+        print("{: >4}".format(s), end="")
+        if not i % 4:
+            print("  ", end="")
+    print(f"  ({num}) ({hex(num)})")
+
+
+
+## start here
+parser = argparse.ArgumentParser()
+parser.add_argument('number', nargs="+")           # positional argument
+args = parser.parse_args()
+nums = [int(i) for i in args.number]
+
+msb = find_msb(max(nums))
+print_header(msb)
+
+for num in nums:
+    print_num(num, msb)
