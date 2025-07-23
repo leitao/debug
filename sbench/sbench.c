@@ -113,7 +113,7 @@ static void print_data(double *throughput_array, double *latency_array, bool raw
 			throughput_array[0],
 		       	throughput_array[DATAPOINTS*50/100],
 		       	throughput_array[DATAPOINTS*95/100]);
-	printf("\t\t");
+	printf("\t | \t");
 	printf("min=%.2f\tp50=%.2f\tp95=%.2f\n",
 		       	latency_array[0],
 		       	latency_array[DATAPOINTS*50/100],
