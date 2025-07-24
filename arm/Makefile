@@ -3,7 +3,7 @@ CFLAGS  = -Wall -O2 -g -W
 ALL_CFLAGS = $(CFLAGS) -D_GNU_SOURCE -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64
 
 # Compilation targets
-PROGS = cpuid
+PROGS = cpuid fpcr afp
 ALL = $(PROGS)
 
 all: $(ALL)
