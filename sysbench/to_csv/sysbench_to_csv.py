@@ -68,7 +68,7 @@ def main():
     ]
 
     writer = csv.DictWriter(sys.stdout, fieldnames=header)
-    writer.writeheader()
+    # writer.writeheader()
     writer.writerow(data)
 
 
