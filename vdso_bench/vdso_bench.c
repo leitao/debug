@@ -227,7 +227,7 @@ void run_for_secs(int thread_count, int secs, thread_func func, struct thread_da
 			printf("Number of calls to %s (%d) : %.2f M/s per thread. Latency: %.2f ns\n", clock_names[td->clockid],  td->clockid, throughput, latency);
 			break;
 		case (SYSCALL):
-			printf("Number of calls to getpid(2) : %.2f M/s per thread. Latecy %.2f ns\n", throughput, latency);
+			printf("Number of calls to getpid (2) : %.2f M/s per thread. Latecy %.2f ns\n", throughput, latency);
 			break;
 	}
 }
