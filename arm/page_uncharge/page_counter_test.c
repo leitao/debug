@@ -188,7 +188,7 @@ static void **allocate_memory_chunks(int num_chunks, size_t chunk_size)
 	return chunks;
 }
 
-static void free_memory_chunks(void **chunks, int num_chunks)
+static void free_memory_chunks(void **chunks, int num_chunks, int chunk_size)
 {
 	int i;
 
@@ -196,6 +196,14 @@ static void free_memory_chunks(void **chunks, int num_chunks)
 		return;
 	}
 
+	/* Mimick the workload by madvise don't need */
+	for (i = 0; i < num_chunks; i++) {
+		if (chunks[i]) {
+			madvise(chunks[i], chunk_size, MADV_DONTNEED);
+		}
+	}
+
+	/* Let's free now */
 	for (i = 0; i < num_chunks; i++) {
 		if (chunks[i]) {
 			free(chunks[i]);
@@ -237,7 +245,7 @@ static double test_single_level(void)
 
 	/* Measure free time (this triggers page_counter_uncharge) */
 	clock_gettime(CLOCK_MONOTONIC, &start);
-	free_memory_chunks(chunks, NUM_ALLOCATIONS);
+	free_memory_chunks(chunks, NUM_ALLOCATIONS, ALLOCATION_SIZE);
 	clock_gettime(CLOCK_MONOTONIC, &end);
 
 	elapsed = timespec_to_ms(&end) - timespec_to_ms(&start);
@@ -279,7 +287,7 @@ static double test_shallow_hierarchy(void)
 	}
 
 	clock_gettime(CLOCK_MONOTONIC, &start);
-	free_memory_chunks(chunks, NUM_ALLOCATIONS);
+	free_memory_chunks(chunks, NUM_ALLOCATIONS, ALLOCATION_SIZE);
 	clock_gettime(CLOCK_MONOTONIC, &end);
 
 	elapsed = timespec_to_ms(&end) - timespec_to_ms(&start);
@@ -321,7 +329,7 @@ static double test_deep_hierarchy(void)
 	}
 
 	clock_gettime(CLOCK_MONOTONIC, &start);
-	free_memory_chunks(chunks, NUM_ALLOCATIONS);
+	free_memory_chunks(chunks, NUM_ALLOCATIONS, ALLOCATION_SIZE);
 	clock_gettime(CLOCK_MONOTONIC, &end);
 
 	elapsed = timespec_to_ms(&end) - timespec_to_ms(&start);
@@ -360,7 +368,7 @@ static void *stress_worker(void *arg)
 	for (i = 0; i < STRESS_ITERATIONS; i++) {
 		chunks = allocate_memory_chunks(10, ALLOCATION_SIZE);
 		if (chunks) {
-			free_memory_chunks(chunks, 10);
+			free_memory_chunks(chunks, 10, ALLOCATION_SIZE);
 		}
 	}
 
