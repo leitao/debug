@@ -423,21 +423,12 @@ static void print_summary(void)
 	printf("Shallow hierarchy: %.2f ms\n", results.shallow_hierarchy_ms);
 	printf("Deep hierarchy:	%.2f ms\n", results.deep_hierarchy_ms);
 	printf("Parallel stress:   %.2f ms (avg per thread)\n", results.parallel_test_ms);
-
-	if (results.single_level_ms > 0) {
-		printf("\nHierarchy overhead:\n");
-		printf("  Shallow: %.1fx slower\n",
-			   results.shallow_hierarchy_ms / results.single_level_ms);
-		printf("  Deep:	%.1fx slower\n",
-			   results.deep_hierarchy_ms / results.single_level_ms);
-	}
 }
 
 /*
  * Main function
  */
-int main()
-{
+int main() {
 	printf("page_counter_uncharge Performance Test\n");
 	printf("=====================================\n");
 
