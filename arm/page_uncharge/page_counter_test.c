@@ -23,10 +23,10 @@
 /* Test configuration */
 #define MAX_HIERARCHY_DEPTH 8
 #define MAX_PATH_LEN 256
-#define MEMORY_SIZE (1 * 1024 * 1024 * 1024UL) /* 1G per test */
+#define MEMORY_SIZE (5 * 1024 * 1024 * 1024UL) /* 5G per test */
 #define ALLOCATION_SIZE 4096UL			 /* 4KB allocations */
 #define NUM_ALLOCATIONS (MEMORY_SIZE / ALLOCATION_SIZE)
-#define NUM_THREADS 4
+#define NUM_THREADS 70
 #define STRESS_ITERATIONS 1000
 
 /* Cgroup paths */
