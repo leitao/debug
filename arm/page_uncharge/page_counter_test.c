@@ -169,6 +169,7 @@ static void **allocate_memory_chunks(int num_chunks, size_t chunk_size)
 		return NULL;
 	}
 
+	// printf("Allocating %d chunks of %lu\n", num_chunks, chunk_size);
 	for (i = 0; i < num_chunks; i++) {
 		chunks[i] = malloc(chunk_size);
 		if (!chunks[i]) {
