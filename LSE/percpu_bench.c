@@ -57,17 +57,6 @@ static inline uint64_t get_time_ns(void)
 	return (uint64_t)ts.tv_sec * 1000000000ULL + ts.tv_nsec;
 }
 
-static int compare_uint64(const void *a, const void *b)
-{
-	uint64_t val_a = *(const uint64_t *)a;
-	uint64_t val_b = *(const uint64_t *)b;
-	if (val_a < val_b)
-		return -1;
-	if (val_a > val_b)
-		return 1;
-	return 0;
-}
-
 static int compare_double(const void *a, const void *b)
 {
 	double val_a = *(const double *)a;
