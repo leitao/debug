@@ -4,15 +4,19 @@
  * Compares LL/SC vs LSE implementations
  */
 
+#define _GNU_SOURCE
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
+#include <sched.h>
+#include <unistd.h>
+#include <errno.h>
 
-#define ITERATIONS 200000000
+#define ITERATIONS 100000000
 #define WARMUP_ITERATIONS ITERATIONS/1000
-#define PERCENTILE_ITERATIONS 1000
+#define PERCENTILE_ITERATIONS 100
 #define SUB_ITERATIONS (ITERATIONS/PERCENTILE_ITERATIONS)
 
 typedef uint64_t u64;
@@ -82,20 +86,38 @@ static double calculate_percentile(double *sorted_array, uint64_t count,
 	return sorted_array[index];
 }
 
-int main(void)
+static int get_num_cpus(void)
+{
+	return sysconf(_SC_NPROCESSORS_ONLN);
+}
+
+static int set_cpu_affinity(int cpu)
+{
+	cpu_set_t mask;
+	CPU_ZERO(&mask);
+	CPU_SET(cpu, &mask);
+
+	if (sched_setaffinity(0, sizeof(mask), &mask) == -1) {
+		perror("sched_setaffinity");
+		return -1;
+	}
+	return 0;
+}
+
+static void run_benchmark_on_cpu(int cpu)
 {
 	u64 counter_llsc = 0;
 	u64 counter_lse = 0;
 	uint64_t start, end;
-	/* difference between start and end for each test */
-	uint64_t time_llsc, time_lse;
 	uint64_t i; /* count number of iterations */
-	uint64_t z; 
+	uint64_t z;
 
-	printf("ARM64 Per-CPU Atomic Add Benchmark\n");
-	printf("===================================\n\n");
+	/* Set CPU affinity */
+	if (set_cpu_affinity(cpu) != 0) {
+		fprintf(stderr, "Failed to set affinity to CPU %d\n", cpu);
+		return;
+	}
 
-	printf("Warming up....\n");
 	/* Warmup - LL/SC */
 	for (i = 0; i < WARMUP_ITERATIONS; i++) {
 		/* Incrementing the same memory position (counter_llsc) */
@@ -109,36 +131,7 @@ int main(void)
 	}
 	counter_lse = 0;
 
-	// /* Benchmark LL/SC */
-	// printf("Running LL/SC benchmark (%d iterations)...\n", ITERATIONS);
-	// start = get_time_ns();
-	// for (i = 0; i < ITERATIONS; i++) {
-	// 	__percpu_add_case_64_llsc(&counter_llsc, 1);
-	// }
-	// end = get_time_ns();
-	// time_llsc = end - start;
-
-	// printf("LL/SC final value: %lu\n", counter_llsc);
-	// printf("LL/SC time: %lu ns (%.2f ns per operation)\n\n", time_llsc,
-	//        (double)time_llsc / ITERATIONS);
-
-	// /* Benchmark LSE */
-	// printf("Running LSE benchmark (%d iterations)...\n", ITERATIONS);
-	// start = get_time_ns();
-	// for (i = 0; i < ITERATIONS; i++) {
-	// 	__percpu_add_case_64_lse(&counter_lse, 1);
-	// }
-	// end = get_time_ns();
-	// time_lse = end - start;
-
-	// printf("LSE final value: %lu\n", counter_lse);
-	// printf("LSE time: %lu ns (%.2f ns per operation)\n\n", time_lse,
-	//        (double)time_lse / ITERATIONS);
-
 	/* Percentile measurements */
-	printf("Running percentile measurements (%d iterations)...\n",
-	       PERCENTILE_ITERATIONS);
-
 	double *latencies_llsc =
 		malloc(PERCENTILE_ITERATIONS * sizeof(double));
 	double *latencies_lse =
@@ -146,11 +139,12 @@ int main(void)
 
 	if (!latencies_llsc || !latencies_lse) {
 		fprintf(stderr, "Failed to allocate memory for latencies\n");
-		return 1;
+		free(latencies_llsc);
+		free(latencies_lse);
+		return;
 	}
 
 	/* Measure LL/SC latencies */
-	printf("Measuring LL/SC individual operation latencies...\n");
 	for (i = 0; i < PERCENTILE_ITERATIONS; i++) {
 		start = get_time_ns();
 		for (z = 0; z < SUB_ITERATIONS; z++)
@@ -160,7 +154,6 @@ int main(void)
 	}
 
 	/* Measure LSE latencies */
-	printf("Measuring LSE individual operation latencies...\n");
 	for (i = 0; i < PERCENTILE_ITERATIONS; i++) {
 		start = get_time_ns();
 		for (z = 0; z < SUB_ITERATIONS; z++)
@@ -176,26 +169,52 @@ int main(void)
 	      compare_double);
 
 	/* Calculate percentiles */
-	printf("\nLatency Percentiles:\n");
+	printf("\n CPU: %d - Latency Percentiles:\n", cpu);
 	printf("====================\n");
-	printf("LL/SC:\n");
-	printf("  p50: %.2f ns\n",
+	printf("LL/SC: ");
+	printf("  p50: %.2f ns\t",
 	       calculate_percentile(latencies_llsc, PERCENTILE_ITERATIONS, 50));
-	printf("  p95: %.2f ns\n",
+	printf("  p95: %.2f ns\t",
 	       calculate_percentile(latencies_llsc, PERCENTILE_ITERATIONS, 95));
-	printf("  p99: %.2f ns\n\n",
+	printf("  p99: %.2f ns\n",
 	       calculate_percentile(latencies_llsc, PERCENTILE_ITERATIONS, 99));
 
-	printf("LSE:\n");
-	printf("  p50: %.2f ns\n",
+	printf("LSE  : ");
+	printf("  p50: %.2f ns\t",
 	       calculate_percentile(latencies_lse, PERCENTILE_ITERATIONS, 50));
-	printf("  p95: %.2f ns\n",
+	printf("  p95: %.2f ns\t",
 	       calculate_percentile(latencies_lse, PERCENTILE_ITERATIONS, 95));
-	printf("  p99: %.2f ns\n\n",
+	printf("  p99: %.2f ns\n",
 	       calculate_percentile(latencies_lse, PERCENTILE_ITERATIONS, 99));
 
 	free(latencies_llsc);
 	free(latencies_lse);
+}
 
+int main(void)
+{
+	int num_cpus;
+	int i;
+
+	printf("ARM64 Per-CPU Atomic Add Benchmark\n");
+	printf("===================================\n");
+
+	printf("Running percentile measurements (%d iterations)...\n",
+	       PERCENTILE_ITERATIONS);
+
+	num_cpus = get_num_cpus();
+	if (num_cpus <= 0) {
+		fprintf(stderr, "Failed to get number of CPUs\n");
+		return 1;
+	}
+
+	printf("Detected %d CPUs\n", num_cpus);
+
+	/* Run benchmark on each CPU */
+	for (i = 0; i < num_cpus; i++) {
+		run_benchmark_on_cpu(i);
+	}
+
+	printf("\n=== Benchmark Complete ===\n");
 	return 0;
 }
