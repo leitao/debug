@@ -55,6 +55,7 @@ int main(void)
 	u64 counter_llsc = 0;
 	u64 counter_lse = 0;
 	uint64_t start, end;
+	/* difference between start and end for each test */
 	uint64_t time_llsc, time_lse;
 	uint64_t i; /* count number of iterations */
 
