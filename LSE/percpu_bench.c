@@ -9,8 +9,8 @@
 #include <string.h>
 #include <time.h>
 
-#define ITERATIONS 10000000
-#define WARMUP_ITERATIONS 1000
+#define ITERATIONS 200000000
+#define WARMUP_ITERATIONS ITERATIONS/1000
 
 typedef uint64_t u64;
 typedef uint32_t u32;
@@ -56,23 +56,15 @@ int main(void)
 	u64 counter_lse = 0;
 	uint64_t start, end;
 	uint64_t time_llsc, time_lse;
-	int i;
+	uint64_t i; /* count number of iterations */
 
 	printf("ARM64 Per-CPU Atomic Add Benchmark\n");
 	printf("===================================\n\n");
 
-	/* Check if LSE is available */
-	printf("Testing LSE availability...\n");
-	__percpu_add_case_64_lse(&counter_lse, 1);
-	if (counter_lse == 1) {
-		printf("LSE atomics appear to be available\n\n");
-	} else {
-		printf("Warning: LSE test may have failed\n\n");
-	}
-	counter_lse = 0;
-
+	printf("Warming up....\n");
 	/* Warmup - LL/SC */
 	for (i = 0; i < WARMUP_ITERATIONS; i++) {
+		/* Incrementing the same memory position (counter_llsc) */
 		__percpu_add_case_64_llsc(&counter_llsc, 1);
 	}
 	counter_llsc = 0;
