@@ -44,8 +44,8 @@ static inline void __percpu_add_case_64_lse(void *ptr, unsigned long val)
 {
 	asm volatile(
 		/* LSE atomics */
-		"    stadd    %[val], %[ptr]\n"
-		: [ptr] "+Q"(*(u64 *)ptr)
+		"    ldadd    %[val], %[tmp], %[ptr]\n"
+		: [tmp] "=&r"(tmp), [ptr] "+Q"(*(u64 *)ptr)
 		: [val] "r"((u64)(val))
 		: "memory");
 }
