@@ -6,11 +6,14 @@
 
 #include <stdint.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <time.h>
 
 #define ITERATIONS 200000000
 #define WARMUP_ITERATIONS ITERATIONS/1000
+#define PERCENTILE_ITERATIONS 1000
+#define SUB_ITERATIONS (ITERATIONS/PERCENTILE_ITERATIONS)
 
 typedef uint64_t u64;
 typedef uint32_t u32;
@@ -50,6 +53,24 @@ static inline uint64_t get_time_ns(void)
 	return (uint64_t)ts.tv_sec * 1000000000ULL + ts.tv_nsec;
 }
 
+static int compare_uint64(const void *a, const void *b)
+{
+	uint64_t val_a = *(const uint64_t *)a;
+	uint64_t val_b = *(const uint64_t *)b;
+	if (val_a < val_b)
+		return -1;
+	if (val_a > val_b)
+		return 1;
+	return 0;
+}
+
+static uint64_t calculate_percentile(uint64_t *sorted_array, uint64_t count,
+				      double percentile)
+{
+	uint64_t index = (uint64_t)((percentile / 100.0) * (count - 1));
+	return sorted_array[index];
+}
+
 int main(void)
 {
 	u64 counter_llsc = 0;
@@ -58,6 +79,7 @@ int main(void)
 	/* difference between start and end for each test */
 	uint64_t time_llsc, time_lse;
 	uint64_t i; /* count number of iterations */
+	uint64_t z; 
 
 	printf("ARM64 Per-CPU Atomic Add Benchmark\n");
 	printf("===================================\n\n");
@@ -76,46 +98,93 @@ int main(void)
 	}
 	counter_lse = 0;
 
-	/* Benchmark LL/SC */
-	printf("Running LL/SC benchmark (%d iterations)...\n", ITERATIONS);
-	start = get_time_ns();
-	for (i = 0; i < ITERATIONS; i++) {
-		__percpu_add_case_64_llsc(&counter_llsc, 1);
+	// /* Benchmark LL/SC */
+	// printf("Running LL/SC benchmark (%d iterations)...\n", ITERATIONS);
+	// start = get_time_ns();
+	// for (i = 0; i < ITERATIONS; i++) {
+	// 	__percpu_add_case_64_llsc(&counter_llsc, 1);
+	// }
+	// end = get_time_ns();
+	// time_llsc = end - start;
+
+	// printf("LL/SC final value: %lu\n", counter_llsc);
+	// printf("LL/SC time: %lu ns (%.2f ns per operation)\n\n", time_llsc,
+	//        (double)time_llsc / ITERATIONS);
+
+	// /* Benchmark LSE */
+	// printf("Running LSE benchmark (%d iterations)...\n", ITERATIONS);
+	// start = get_time_ns();
+	// for (i = 0; i < ITERATIONS; i++) {
+	// 	__percpu_add_case_64_lse(&counter_lse, 1);
+	// }
+	// end = get_time_ns();
+	// time_lse = end - start;
+
+	// printf("LSE final value: %lu\n", counter_lse);
+	// printf("LSE time: %lu ns (%.2f ns per operation)\n\n", time_lse,
+	//        (double)time_lse / ITERATIONS);
+
+	/* Percentile measurements */
+	printf("Running percentile measurements (%d iterations)...\n",
+	       PERCENTILE_ITERATIONS);
+
+	uint64_t *latencies_llsc =
+		malloc(PERCENTILE_ITERATIONS * sizeof(uint64_t));
+	uint64_t *latencies_lse =
+		malloc(PERCENTILE_ITERATIONS * sizeof(uint64_t));
+
+	if (!latencies_llsc || !latencies_lse) {
+		fprintf(stderr, "Failed to allocate memory for latencies\n");
+		return 1;
 	}
-	end = get_time_ns();
-	time_llsc = end - start;
 
-	printf("LL/SC final value: %lu\n", counter_llsc);
-	printf("LL/SC time: %lu ns (%.2f ns per operation)\n\n", time_llsc,
-	       (double)time_llsc / ITERATIONS);
-
-	/* Benchmark LSE */
-	printf("Running LSE benchmark (%d iterations)...\n", ITERATIONS);
-	start = get_time_ns();
-	for (i = 0; i < ITERATIONS; i++) {
-		__percpu_add_case_64_lse(&counter_lse, 1);
+	/* Measure LL/SC latencies */
+	printf("Measuring LL/SC individual operation latencies...\n");
+	for (i = 0; i < PERCENTILE_ITERATIONS; i++) {
+		start = get_time_ns();
+		for (z = 0; z < SUB_ITERATIONS; z++)
+			__percpu_add_case_64_llsc(&counter_llsc, 1);
+		end = get_time_ns();
+		latencies_llsc[i] = (end - start) / SUB_ITERATIONS;
 	}
-	end = get_time_ns();
-	time_lse = end - start;
 
-	printf("LSE final value: %lu\n", counter_lse);
-	printf("LSE time: %lu ns (%.2f ns per operation)\n\n", time_lse,
-	       (double)time_lse / ITERATIONS);
-
-	/* Results */
-	printf("Results:\n");
-	printf("========\n");
-	if (time_lse < time_llsc) {
-		double speedup = (double)time_llsc / time_lse;
-		printf("LSE is FASTER by %.2fx\n", speedup);
-		printf("LSE is %.2f%% faster than LL/SC\n",
-		       ((double)(time_llsc - time_lse) / time_llsc) * 100);
-	} else {
-		double speedup = (double)time_lse / time_llsc;
-		printf("LL/SC is FASTER by %.2fx\n", speedup);
-		printf("LL/SC is %.2f%% faster than LSE\n",
-		       ((double)(time_lse - time_llsc) / time_lse) * 100);
+	/* Measure LSE latencies */
+	printf("Measuring LSE individual operation latencies...\n");
+	for (i = 0; i < PERCENTILE_ITERATIONS; i++) {
+		start = get_time_ns();
+		for (z = 0; z < SUB_ITERATIONS; z++)
+			__percpu_add_case_64_lse(&counter_lse, 1);
+		end = get_time_ns();
+		latencies_lse[i] = (end - start) / SUB_ITERATIONS;
 	}
+
+	/* Sort the latencies */
+	qsort(latencies_llsc, PERCENTILE_ITERATIONS, sizeof(uint64_t),
+	      compare_uint64);
+	qsort(latencies_lse, PERCENTILE_ITERATIONS, sizeof(uint64_t),
+	      compare_uint64);
+
+	/* Calculate percentiles */
+	printf("\nLatency Percentiles:\n");
+	printf("====================\n");
+	printf("LL/SC:\n");
+	printf("  p50: %lu ns\n",
+	       calculate_percentile(latencies_llsc, PERCENTILE_ITERATIONS, 50));
+	printf("  p95: %lu ns\n",
+	       calculate_percentile(latencies_llsc, PERCENTILE_ITERATIONS, 95));
+	printf("  p99: %lu ns\n\n",
+	       calculate_percentile(latencies_llsc, PERCENTILE_ITERATIONS, 99));
+
+	printf("LSE:\n");
+	printf("  p50: %lu ns\n",
+	       calculate_percentile(latencies_lse, PERCENTILE_ITERATIONS, 50));
+	printf("  p95: %lu ns\n",
+	       calculate_percentile(latencies_lse, PERCENTILE_ITERATIONS, 95));
+	printf("  p99: %lu ns\n\n",
+	       calculate_percentile(latencies_lse, PERCENTILE_ITERATIONS, 99));
+
+	free(latencies_llsc);
+	free(latencies_lse);
 
 	return 0;
 }
