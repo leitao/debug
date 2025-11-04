@@ -64,7 +64,18 @@ static int compare_uint64(const void *a, const void *b)
 	return 0;
 }
 
-static uint64_t calculate_percentile(uint64_t *sorted_array, uint64_t count,
+static int compare_double(const void *a, const void *b)
+{
+	double val_a = *(const double *)a;
+	double val_b = *(const double *)b;
+	if (val_a < val_b)
+		return -1;
+	if (val_a > val_b)
+		return 1;
+	return 0;
+}
+
+static double calculate_percentile(double *sorted_array, uint64_t count,
 				      double percentile)
 {
 	uint64_t index = (uint64_t)((percentile / 100.0) * (count - 1));
@@ -128,10 +139,10 @@ int main(void)
 	printf("Running percentile measurements (%d iterations)...\n",
 	       PERCENTILE_ITERATIONS);
 
-	uint64_t *latencies_llsc =
-		malloc(PERCENTILE_ITERATIONS * sizeof(uint64_t));
-	uint64_t *latencies_lse =
-		malloc(PERCENTILE_ITERATIONS * sizeof(uint64_t));
+	double *latencies_llsc =
+		malloc(PERCENTILE_ITERATIONS * sizeof(double));
+	double *latencies_lse =
+		malloc(PERCENTILE_ITERATIONS * sizeof(double));
 
 	if (!latencies_llsc || !latencies_lse) {
 		fprintf(stderr, "Failed to allocate memory for latencies\n");
@@ -145,7 +156,7 @@ int main(void)
 		for (z = 0; z < SUB_ITERATIONS; z++)
 			__percpu_add_case_64_llsc(&counter_llsc, 1);
 		end = get_time_ns();
-		latencies_llsc[i] = (end - start) / SUB_ITERATIONS;
+		latencies_llsc[i] = (double)(end - start) / SUB_ITERATIONS;
 	}
 
 	/* Measure LSE latencies */
@@ -155,32 +166,32 @@ int main(void)
 		for (z = 0; z < SUB_ITERATIONS; z++)
 			__percpu_add_case_64_lse(&counter_lse, 1);
 		end = get_time_ns();
-		latencies_lse[i] = (end - start) / SUB_ITERATIONS;
+		latencies_lse[i] = (double)(end - start) / SUB_ITERATIONS;
 	}
 
 	/* Sort the latencies */
-	qsort(latencies_llsc, PERCENTILE_ITERATIONS, sizeof(uint64_t),
-	      compare_uint64);
-	qsort(latencies_lse, PERCENTILE_ITERATIONS, sizeof(uint64_t),
-	      compare_uint64);
+	qsort(latencies_llsc, PERCENTILE_ITERATIONS, sizeof(double),
+	      compare_double);
+	qsort(latencies_lse, PERCENTILE_ITERATIONS, sizeof(double),
+	      compare_double);
 
 	/* Calculate percentiles */
 	printf("\nLatency Percentiles:\n");
 	printf("====================\n");
 	printf("LL/SC:\n");
-	printf("  p50: %lu ns\n",
+	printf("  p50: %.2f ns\n",
 	       calculate_percentile(latencies_llsc, PERCENTILE_ITERATIONS, 50));
-	printf("  p95: %lu ns\n",
+	printf("  p95: %.2f ns\n",
 	       calculate_percentile(latencies_llsc, PERCENTILE_ITERATIONS, 95));
-	printf("  p99: %lu ns\n\n",
+	printf("  p99: %.2f ns\n\n",
 	       calculate_percentile(latencies_llsc, PERCENTILE_ITERATIONS, 99));
 
 	printf("LSE:\n");
-	printf("  p50: %lu ns\n",
+	printf("  p50: %.2f ns\n",
 	       calculate_percentile(latencies_lse, PERCENTILE_ITERATIONS, 50));
-	printf("  p95: %lu ns\n",
+	printf("  p95: %.2f ns\n",
 	       calculate_percentile(latencies_lse, PERCENTILE_ITERATIONS, 95));
-	printf("  p99: %lu ns\n\n",
+	printf("  p99: %.2f ns\n\n",
 	       calculate_percentile(latencies_lse, PERCENTILE_ITERATIONS, 99));
 
 	free(latencies_llsc);
