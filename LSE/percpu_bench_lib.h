@@ -21,6 +21,7 @@ struct benchmark {
 	void (*func)(void *, unsigned long);
 	const char *name;
 	long contention;
+	long duty;
 };
 
 struct contender {
@@ -35,7 +36,7 @@ struct contender {
 extern uint64_t loop, tmp;
 
 /* Atomic operation function declarations (implemented in percpu_bench.c) */
-void run_core_benchmark(u64 *counter, double *latencies, void (*func)(void *, unsigned long));
+void run_core_benchmark(u64 *counter, double *latencies, void (*func)(void *, unsigned long), long duty);
 
 /* Helper function declarations */
 uint64_t get_time_ns(void);

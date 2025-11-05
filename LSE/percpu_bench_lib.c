@@ -134,14 +134,14 @@ void run_benchmark_on_cpu(int cpu, struct benchmark *b)
 	}
 
 	/* Run core benchmark measurements */
-	run_core_benchmark(counter, latencies, b->func);
+	run_core_benchmark(counter, latencies, b->func, b->duty);
 
 	/* Sort the latencies */
 	qsort(latencies, PERCENTILE_ITERATIONS, sizeof(double),
 	      compare_double);
 
 	/* Calculate percentiles */
-	printf("%s (%16ld): ", b->name, b->contention);
+	printf("%s (c %16ld, d %16ld): ", b->name, b->contention, b->duty);
 	printf("  p50: %06.2f ns\t",
 	       calculate_percentile(latencies, PERCENTILE_ITERATIONS, 50));
 	printf("  p95: %06.2f ns\t",
