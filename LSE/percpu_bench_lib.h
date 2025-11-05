@@ -7,19 +7,29 @@
 #define PERCPU_BENCH_LIB_H
 
 #include <stdint.h>
+#include <stdatomic.h>
 
-#define ITERATIONS 100000000
+#define ITERATIONS (1000UL * 1000 * 1000)
 #define WARMUP_ITERATIONS ITERATIONS/1000
 #define PERCENTILE_ITERATIONS 100
 #define SUB_ITERATIONS (ITERATIONS/PERCENTILE_ITERATIONS)
 
+typedef uint64_t u64;
+typedef uint32_t u32;
+
 struct benchmark {
 	void (*func)(void *, unsigned long);
 	const char *name;
+	long contention;
 };
 
-typedef uint64_t u64;
-typedef uint32_t u32;
+struct contender {
+	void (*func)(void *, unsigned long);
+	u64 *counter;
+	long contention;
+	int cpu;
+	atomic_bool done;
+};
 
 /* Global variables used in inline assembly */
 extern uint64_t loop, tmp;

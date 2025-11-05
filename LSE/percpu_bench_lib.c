@@ -12,6 +12,8 @@
 #include <sched.h>
 #include <unistd.h>
 #include <errno.h>
+#include <stdatomic.h>
+#include <pthread.h>
 
 #include "percpu_bench_lib.h"
 
@@ -45,6 +47,23 @@ int get_num_cpus(void)
 	return sysconf(_SC_NPROCESSORS_ONLN);
 }
 
+int set_cpu_antiaffinity(int cpu)
+{
+	cpu_set_t mask;
+	CPU_ZERO(&mask);
+
+	if (cpu == 0)
+		CPU_SET(32, &mask);
+	else
+		CPU_SET(0, &mask);
+
+	if (sched_setaffinity(0, sizeof(mask), &mask) == -1) {
+		perror("sched_setaffinity");
+		return -1;
+	}
+	return 0;
+}
+
 int set_cpu_affinity(int cpu)
 {
 	cpu_set_t mask;
@@ -58,10 +77,41 @@ int set_cpu_affinity(int cpu)
 	return 0;
 }
 
+static void *contender_main(void *arg_uncast)
+{
+	struct contender *arg = arg_uncast;
+
+	set_cpu_antiaffinity(arg->cpu);
+
+	while (atomic_load(&arg->done) == 0) {
+		arg->func(arg->counter, 1);
+		for (long i = 0; i < arg->contention; ++i)
+			__asm__ volatile ("nop");
+	}
+
+	return NULL;
+}
+
 void run_benchmark_on_cpu(int cpu, struct benchmark *b)
 {
-	u64 counter = 0;
+	u64 counters[2048];
+	u64 *counter = counters + 1024;
 	uint64_t i; /* count number of iterations */
+
+	pthread_t cthread;
+	struct contender arg = {
+		.done = 0,
+		.counter = counter,
+		.contention = b->contention,
+		.func = b->func,
+		.cpu = cpu,
+	};
+
+	if (b->contention != 0) {
+		atomic_init(&arg.done, 0);
+
+		pthread_create(&cthread, NULL, &contender_main, &arg);
+	}
 
 	/* Set CPU affinity */
 	if (set_cpu_affinity(cpu) != 0) {
@@ -72,9 +122,9 @@ void run_benchmark_on_cpu(int cpu, struct benchmark *b)
 	/* Warmup - LL/SC */
 	for (i = 0; i < WARMUP_ITERATIONS; i++) {
 		/* Incrementing the same memory position (counter_llsc) */
-		b->func(&counter, 1);
+		b->func(counter, 1);
 	}
-	counter = 0;
+	*counter = 0;
 
 	double *latencies =
 		malloc(PERCENTILE_ITERATIONS * sizeof(double));
@@ -84,14 +134,14 @@ void run_benchmark_on_cpu(int cpu, struct benchmark *b)
 	}
 
 	/* Run core benchmark measurements */
-	run_core_benchmark(&counter, latencies, b->func);
+	run_core_benchmark(counter, latencies, b->func);
 
 	/* Sort the latencies */
 	qsort(latencies, PERCENTILE_ITERATIONS, sizeof(double),
 	      compare_double);
 
 	/* Calculate percentiles */
-	printf("%s : ", b->name);
+	printf("%s (%16ld): ", b->name, b->contention);
 	printf("  p50: %06.2f ns\t",
 	       calculate_percentile(latencies, PERCENTILE_ITERATIONS, 50));
 	printf("  p95: %06.2f ns\t",
@@ -100,4 +150,9 @@ void run_benchmark_on_cpu(int cpu, struct benchmark *b)
 	       calculate_percentile(latencies, PERCENTILE_ITERATIONS, 99));
 
 	free(latencies);
+
+	if (b->contention != 0) {
+		atomic_store(&arg.done, 1);
+		pthread_join(cthread, NULL);
+	}
 }

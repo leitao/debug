@@ -98,19 +98,84 @@ int main(void)
 		{
 			.func = __percpu_add_case_64_llsc,
 			.name = "LL/SC          ",
+			.contention = 0,
+		}, {
+			.func = __percpu_add_case_64_llsc,
+			.name = "LL/SC          ",
+			.contention = 10,
+		}, {
+			.func = __percpu_add_case_64_llsc,
+			.name = "LL/SC          ",
+			.contention = 1000,
+		}, {
+			.func = __percpu_add_case_64_llsc,
+			.name = "LL/SC          ",
+			.contention = 1000000,
 		}, {
 			.func = __percpu_add_case_64_lse,
 			.name = "LSE (stadd)    ",
+			.contention = 0,
+		}, {
+			.func = __percpu_add_case_64_lse,
+			.name = "LSE (stadd)    ",
+			.contention = 10,
+		}, {
+			.func = __percpu_add_case_64_lse,
+			.name = "LSE (stadd)    ",
+			.contention = 1000,
+		}, {
+			.func = __percpu_add_case_64_lse,
+			.name = "LSE (stadd)    ",
+			.contention = 1000000,
 		}, {
 			.func = __percpu_add_case_64_ldadd,
 			.name = "LDADD          ",
+			.contention = 0,
+		}, {
+			.func = __percpu_add_case_64_ldadd,
+			.name = "LDADD          ",
+			.contention = 10,
+		}, {
+			.func = __percpu_add_case_64_ldadd,
+			.name = "LDADD          ",
+			.contention = 1000,
+		}, {
+			.func = __percpu_add_case_64_ldadd,
+			.name = "LDADD          ",
+			.contention = 1000000,
 		}, {
 			.func = __percpu_add_case_64_prfm_stadd,
 			.name = "PFRM_KEEP+STADD",
+			.contention = 0,
+		}, {
+			.func = __percpu_add_case_64_prfm_stadd,
+			.name = "PFRM_KEEP+STADD",
+			.contention = 10,
+		}, {
+			.func = __percpu_add_case_64_prfm_stadd,
+			.name = "PFRM_KEEP+STADD",
+			.contention = 1000,
+		}, {
+			.func = __percpu_add_case_64_prfm_stadd,
+			.name = "PFRM_KEEP+STADD",
+			.contention = 1000000,
 		}, {
 			.func = __percpu_add_case_64_prfm_strm_stadd,
 			.name = "PFRM_STRM+STADD",
-		},
+			.contention = 0,
+		}, {
+			.func = __percpu_add_case_64_prfm_strm_stadd,
+			.name = "PFRM_STRM+STADD",
+			.contention = 10,
+		}, {
+			.func = __percpu_add_case_64_prfm_strm_stadd,
+			.name = "PFRM_STRM+STADD",
+			.contention = 1000,
+			}, {
+			.func = __percpu_add_case_64_prfm_strm_stadd,
+			.name = "PFRM_STRM+STADD",
+			.contention = 1000000,
+	},
 	};
 
 	printf("ARM64 Per-CPU Atomic Add Benchmark\n");
