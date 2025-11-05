@@ -50,10 +50,36 @@ void __percpu_add_case_64_ldadd(void *ptr, unsigned long val)
 		: "memory");
 }
 
+/* LSE implementation using PRFM + stadd */
+void __percpu_add_case_64_prfm_stadd(void *ptr, unsigned long val)
+{
+	asm volatile(
+		/* Prefetch + LSE atomics */
+		"    prfm    pstl1keep, %[ptr]\n"
+		"    stadd   %[val], %[ptr]\n"
+		: [ptr] "+Q"(*(u64 *)ptr)
+		: [val] "r"((u64)(val))
+		: "memory");
+}
+
+/* LSE implementation using PRFM STRM + stadd */
+void __percpu_add_case_64_prfm_strm_stadd(void *ptr, unsigned long val)
+{
+	asm volatile(
+		/* Prefetch streaming + LSE atomics */
+		"    prfm    pstl1strm, %[ptr]\n"
+		"    stadd   %[val], %[ptr]\n"
+		: [ptr] "+Q"(*(u64 *)ptr)
+		: [val] "r"((u64)(val))
+		: "memory");
+}
+
 /* Core benchmark measurement function */
 void run_core_benchmark(u64 *counter_llsc, u64 *counter_lse, u64 *counter_ldadd,
+			u64 *counter_prfm_stadd, u64 *counter_prfm_strm_stadd,
 			double *latencies_llsc, double *latencies_lse,
-			double *latencies_ldadd)
+			double *latencies_ldadd, double *latencies_prfm_stadd,
+			double *latencies_prfm_strm_stadd)
 {
 	uint64_t start, end;
 	uint64_t i, z;
@@ -83,6 +109,24 @@ void run_core_benchmark(u64 *counter_llsc, u64 *counter_lse, u64 *counter_ldadd,
 			__percpu_add_case_64_ldadd(counter_ldadd, 1);
 		end = get_time_ns();
 		latencies_ldadd[i] = (double)(end - start) / SUB_ITERATIONS;
+	}
+
+	/* Measure PRFM+STADD latencies */
+	for (i = 0; i < PERCENTILE_ITERATIONS; i++) {
+		start = get_time_ns();
+		for (z = 0; z < SUB_ITERATIONS; z++)
+			__percpu_add_case_64_prfm_stadd(counter_prfm_stadd, 1);
+		end = get_time_ns();
+		latencies_prfm_stadd[i] = (double)(end - start) / SUB_ITERATIONS;
+	}
+
+	/* Measure PRFM_STRM+STADD latencies */
+	for (i = 0; i < PERCENTILE_ITERATIONS; i++) {
+		start = get_time_ns();
+		for (z = 0; z < SUB_ITERATIONS; z++)
+			__percpu_add_case_64_prfm_strm_stadd(counter_prfm_strm_stadd, 1);
+		end = get_time_ns();
+		latencies_prfm_strm_stadd[i] = (double)(end - start) / SUB_ITERATIONS;
 	}
 }
 
