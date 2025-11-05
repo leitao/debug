@@ -28,7 +28,7 @@ void __percpu_add_case_64_llsc(void *ptr, unsigned long val)
 		: "memory");
 }
 
-/* LSE implementation */
+/* LSE implementation using stadd */
 void __percpu_add_case_64_lse(void *ptr, unsigned long val)
 {
 	asm volatile(
@@ -39,9 +39,21 @@ void __percpu_add_case_64_lse(void *ptr, unsigned long val)
 		: "memory");
 }
 
+/* LSE implementation using ldadd */
+void __percpu_add_case_64_ldadd(void *ptr, unsigned long val)
+{
+	asm volatile(
+		/* LSE atomics */
+		"    ldadd    %[val], %[tmp], %[ptr]\n"
+		: [tmp] "=&r"(tmp), [ptr] "+Q"(*(u64 *)ptr)
+		: [val] "r"((u64)(val))
+		: "memory");
+}
+
 /* Core benchmark measurement function */
-void run_core_benchmark(u64 *counter_llsc, u64 *counter_lse,
-			double *latencies_llsc, double *latencies_lse)
+void run_core_benchmark(u64 *counter_llsc, u64 *counter_lse, u64 *counter_ldadd,
+			double *latencies_llsc, double *latencies_lse,
+			double *latencies_ldadd)
 {
 	uint64_t start, end;
 	uint64_t i, z;
@@ -55,13 +67,22 @@ void run_core_benchmark(u64 *counter_llsc, u64 *counter_lse,
 		latencies_llsc[i] = (double)(end - start) / SUB_ITERATIONS;
 	}
 
-	/* Measure LSE latencies */
+	/* Measure LSE (stadd) latencies */
 	for (i = 0; i < PERCENTILE_ITERATIONS; i++) {
 		start = get_time_ns();
 		for (z = 0; z < SUB_ITERATIONS; z++)
 			__percpu_add_case_64_lse(counter_lse, 1);
 		end = get_time_ns();
 		latencies_lse[i] = (double)(end - start) / SUB_ITERATIONS;
+	}
+
+	/* Measure LDADD latencies */
+	for (i = 0; i < PERCENTILE_ITERATIONS; i++) {
+		start = get_time_ns();
+		for (z = 0; z < SUB_ITERATIONS; z++)
+			__percpu_add_case_64_ldadd(counter_ldadd, 1);
+		end = get_time_ns();
+		latencies_ldadd[i] = (double)(end - start) / SUB_ITERATIONS;
 	}
 }
 
