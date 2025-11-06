@@ -2,10 +2,10 @@ CC = clang
 CFLAGS = -O2 -Wall -march=armv8-a+lse
 
 percpu_bench: percpu_bench.c percpu_bench_lib.c percpu_bench_lib.h
-	$(CC) $(CFLAGS) percpu_bench.c percpu_bench_lib.c -o percpu_bench
+	$(CC) $(CFLAGS) -pthread percpu_bench.c percpu_bench_lib.c -o percpu_bench
 
 percpu_bench_debug: percpu_bench.c percpu_bench_lib.c percpu_bench_lib.h
-	$(CC) -g -march=armv8-a+lse percpu_bench.c percpu_bench_lib.c -o percpu_bench_debug
+	$(CC) -pthread -g -march=armv8-a+lse percpu_bench.c percpu_bench_lib.c -o percpu_bench_debug
 
 parallel_atomic_bench: parallel_atomic_bench.c
 	$(CC) $(CFLAGS) -pthread parallel_atomic_bench.c -o parallel_atomic_bench
