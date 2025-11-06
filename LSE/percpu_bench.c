@@ -11,12 +11,11 @@
 
 #include "percpu_bench_lib.h"
 
-/* To be used inside the asm inline code */
-uint64_t loop, tmp;
-
 /* LL/SC implementation */
 void __percpu_add_case_64_llsc(void *ptr, unsigned long val)
 {
+	long loop, tmp;
+
 	asm volatile(
 		/* LL/SC */
 		"1:  ldxr    %[tmp], %[ptr]\n"
@@ -42,6 +41,8 @@ void __percpu_add_case_64_lse(void *ptr, unsigned long val)
 /* LSE implementation using ldadd */
 void __percpu_add_case_64_ldadd(void *ptr, unsigned long val)
 {
+	long tmp;
+
 	asm volatile(
 		/* LSE atomics */
 		"    ldadd    %[val], %[tmp], %[ptr]\n"
