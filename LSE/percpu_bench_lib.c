@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0 */
 /*
- * Benchmark for ARM64 per-CPU atomic operations - Library implementation
+ * Benchmark for per-CPU atomic operations - Library implementation
+ * Supports both ARM64 and x86_64 architectures
  */
 
 #define _GNU_SOURCE
@@ -85,8 +86,15 @@ static void *contender_main(void *arg_uncast)
 
 	while (atomic_load(&arg->done) == 0) {
 		arg->func(arg->counter, 1);
-		for (long i = 0; i < arg->contention; ++i)
+		for (long i = 0; i < arg->contention; ++i) {
+#if defined(__aarch64__)
 			__asm__ volatile ("nop");
+#elif defined(__x86_64__)
+			__asm__ volatile ("nop");
+#else
+#error "Unsupported architecture"
+#endif
+		}
 	}
 
 	return NULL;

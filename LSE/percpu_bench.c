@@ -1,7 +1,8 @@
 /* SPDX-License-Identifier: GPL-2.0 */
 /*
- * Benchmark for ARM64 per-CPU atomic operations
- * Compares LL/SC vs LSE implementations
+ * Benchmark for per-CPU atomic operations
+ * ARM64: Compares LL/SC vs LSE implementations
+ * x86: Compares CMPXCHG vs LOCK XADD implementations
  */
 
 #define _GNU_SOURCE
@@ -11,7 +12,9 @@
 
 #include "percpu_bench_lib.h"
 
-/* LL/SC implementation */
+#ifdef __aarch64__
+
+/* ARM64 LL/SC implementation */
 void __percpu_add_case_64_llsc(void *ptr, unsigned long val)
 {
 	long loop, tmp;
@@ -27,7 +30,7 @@ void __percpu_add_case_64_llsc(void *ptr, unsigned long val)
 		: "memory");
 }
 
-/* LSE implementation using stadd */
+/* ARM64 LSE implementation using stadd */
 void __percpu_add_case_64_lse(void *ptr, unsigned long val)
 {
 	asm volatile(
@@ -38,7 +41,7 @@ void __percpu_add_case_64_lse(void *ptr, unsigned long val)
 		: "memory");
 }
 
-/* LSE implementation using ldadd */
+/* ARM64 LSE implementation using ldadd */
 void __percpu_add_case_64_ldadd(void *ptr, unsigned long val)
 {
 	long tmp;
@@ -51,7 +54,7 @@ void __percpu_add_case_64_ldadd(void *ptr, unsigned long val)
 		: "memory");
 }
 
-/* LSE implementation using PRFM + stadd */
+/* ARM64 LSE implementation using PRFM + stadd */
 void __percpu_add_case_64_prfm_stadd(void *ptr, unsigned long val)
 {
 	asm volatile(
@@ -63,7 +66,7 @@ void __percpu_add_case_64_prfm_stadd(void *ptr, unsigned long val)
 		: "memory");
 }
 
-/* LSE implementation using PRFM STRM + stadd */
+/* ARM64 LSE implementation using PRFM STRM + stadd */
 void __percpu_add_case_64_prfm_strm_stadd(void *ptr, unsigned long val)
 {
 	asm volatile(
@@ -74,6 +77,76 @@ void __percpu_add_case_64_prfm_strm_stadd(void *ptr, unsigned long val)
 		: [val] "r"((u64)(val))
 		: "memory");
 }
+
+#elif defined(__x86_64__)
+
+/* x86 CMPXCHG loop implementation (equivalent to ARM64 LL/SC) */
+void __percpu_add_case_64_llsc(void *ptr, unsigned long val)
+{
+	long old, new;
+
+	asm volatile(
+		/* Compare-and-swap loop */
+		"1:  movq    %[ptr], %[old]\n"
+		"    leaq    (%[old],%[val]), %[new]\n"
+		"    lock cmpxchgq %[new], %[ptr]\n"
+		"    jnz     1b"
+		: [old] "=&a"(old), [new] "=&r"(new), [ptr] "+m"(*(u64 *)ptr)
+		: [val] "r"((u64)(val))
+		: "memory", "cc");
+}
+
+/* x86 LOCK ADD implementation (equivalent to ARM64 LSE stadd) */
+void __percpu_add_case_64_lse(void *ptr, unsigned long val)
+{
+	asm volatile(
+		/* Atomic add without return */
+		"    lock addq %[val], %[ptr]\n"
+		: [ptr] "+m"(*(u64 *)ptr)
+		: [val] "r"((u64)(val))
+		: "memory", "cc");
+}
+
+/* x86 LOCK XADD implementation (equivalent to ARM64 LSE ldadd) */
+void __percpu_add_case_64_ldadd(void *ptr, unsigned long val)
+{
+	long tmp = val;
+
+	asm volatile(
+		/* Atomic add with return of old value */
+		"    lock xaddq %[tmp], %[ptr]\n"
+		: [tmp] "+r"(tmp), [ptr] "+m"(*(u64 *)ptr)
+		:
+		: "memory", "cc");
+}
+
+/* x86 PREFETCHT0 + LOCK ADD implementation */
+void __percpu_add_case_64_prfm_stadd(void *ptr, unsigned long val)
+{
+	asm volatile(
+		/* Prefetch to L1 cache + atomic add */
+		"    prefetcht0 %[ptr]\n"
+		"    lock addq %[val], %[ptr]\n"
+		: [ptr] "+m"(*(u64 *)ptr)
+		: [val] "r"((u64)(val))
+		: "memory", "cc");
+}
+
+/* x86 PREFETCHNTA + LOCK ADD implementation (non-temporal/streaming) */
+void __percpu_add_case_64_prfm_strm_stadd(void *ptr, unsigned long val)
+{
+	asm volatile(
+		/* Non-temporal prefetch + atomic add */
+		"    prefetchnta %[ptr]\n"
+		"    lock addq %[val], %[ptr]\n"
+		: [ptr] "+m"(*(u64 *)ptr)
+		: [val] "r"((u64)(val))
+		: "memory", "cc");
+}
+
+#else
+#error "Unsupported architecture. Only ARM64 and x86_64 are supported."
+#endif
 
 /* Core benchmark measurement function */
 void run_core_benchmark(u64 *counter, double *latencies, void (*func)(void *, unsigned long), long duty)
@@ -270,8 +343,13 @@ int main(void)
 		},
 	};
 
+#ifdef __aarch64__
 	printf("ARM64 Per-CPU Atomic Add Benchmark\n");
 	printf("===================================\n");
+#elif defined(__x86_64__)
+	printf("x86_64 Per-CPU Atomic Add Benchmark\n");
+	printf("====================================\n");
+#endif
 
 	printf("Running percentile measurements (%d iterations)...\n",
 	       PERCENTILE_ITERATIONS);

@@ -1,7 +1,8 @@
 /* SPDX-License-Identifier: GPL-2.0 */
 /*
- * Benchmark for ARM64 parallel atomic operations
- * Compares LL/SC vs LSE implementations under contention
+ * Benchmark for parallel atomic operations
+ * ARM64: Compares LL/SC vs LSE implementations under contention
+ * x86: Compares CMPXCHG vs LOCK ADD implementations under contention
  * Multiple threads access the same shared counter. One atomic operation per
  * CPU, in parallel
  */
@@ -41,10 +42,12 @@ struct thread_data {
 	double *latencies_lse;
 };
 
+#ifdef __aarch64__
+
 /* To be used inside the asm inline code */
 __thread uint64_t loop, tmp;
 
-/* LL/SC implementation */
+/* ARM64 LL/SC implementation */
 static inline void __percpu_add_case_64_llsc(void *ptr, unsigned long val)
 {
 	asm volatile(
@@ -58,7 +61,7 @@ static inline void __percpu_add_case_64_llsc(void *ptr, unsigned long val)
 		: "memory");
 }
 
-/* LSE implementation */
+/* ARM64 LSE implementation */
 static inline void __percpu_add_case_64_lse(void *ptr, unsigned long val)
 {
 	asm volatile(
@@ -68,6 +71,39 @@ static inline void __percpu_add_case_64_lse(void *ptr, unsigned long val)
 		: [val] "r"((u64)(val))
 		: "memory");
 }
+
+#elif defined(__x86_64__)
+
+/* x86 CMPXCHG loop implementation (equivalent to ARM64 LL/SC) */
+static inline void __percpu_add_case_64_llsc(void *ptr, unsigned long val)
+{
+	long old, new;
+
+	asm volatile(
+		/* Compare-and-swap loop */
+		"1:  movq    %[ptr], %[old]\n"
+		"    leaq    (%[old],%[val]), %[new]\n"
+		"    lock cmpxchgq %[new], %[ptr]\n"
+		"    jnz     1b"
+		: [old] "=&a"(old), [new] "=&r"(new), [ptr] "+m"(*(u64 *)ptr)
+		: [val] "r"((u64)(val))
+		: "memory", "cc");
+}
+
+/* x86 LOCK ADD implementation (equivalent to ARM64 LSE) */
+static inline void __percpu_add_case_64_lse(void *ptr, unsigned long val)
+{
+	asm volatile(
+		/* Atomic add without return */
+		"    lock addq %[val], %[ptr]\n"
+		: [ptr] "+m"(*(u64 *)ptr)
+		: [val] "r"((u64)(val))
+		: "memory", "cc");
+}
+
+#else
+#error "Unsupported architecture. Only ARM64 and x86_64 are supported."
+#endif
 
 static inline uint64_t get_time_ns(void)
 {
@@ -185,8 +221,13 @@ int main(void)
 	pthread_t *threads;
 	struct thread_data *thread_data_array;
 
+#ifdef __aarch64__
 	printf("ARM64 Parallel Atomic Add Benchmark\n");
 	printf("====================================\n");
+#elif defined(__x86_64__)
+	printf("x86_64 Parallel Atomic Add Benchmark\n");
+	printf("=====================================\n");
+#endif
 
 	printf("Running parallel atomic operations with contention...\n");
 	printf("Percentile measurements (%d iterations per thread)...\n",
@@ -250,7 +291,11 @@ int main(void)
 		printf("\n Thread %d (CPU %d) - Latency Percentiles:\n",
 		       data->thread_id, data->cpu);
 		printf("====================\n");
+#ifdef __aarch64__
 		printf("LL/SC: ");
+#elif defined(__x86_64__)
+		printf("CMPXCHG: ");
+#endif
 		printf("  p50: %07.2f ns\t",
 		       calculate_percentile(data->latencies_llsc,
 					    PERCENTILE_ITERATIONS, 50));
@@ -261,7 +306,11 @@ int main(void)
 		       calculate_percentile(data->latencies_llsc,
 					    PERCENTILE_ITERATIONS, 99));
 
+#ifdef __aarch64__
 		printf("LSE  : ");
+#elif defined(__x86_64__)
+		printf("LOCK ADD: ");
+#endif
 		printf("  p50: %07.2f ns\t",
 		       calculate_percentile(data->latencies_lse,
 					    PERCENTILE_ITERATIONS, 50));
@@ -277,9 +326,14 @@ int main(void)
 	}
 
 	printf("\nShared counters final values:\n");
+#ifdef __aarch64__
 	printf("LL/SC counter: %lu\n", shared_counter_llsc);
 	printf("LSE counter:   %lu\n", shared_counter_lse);
-	printf("Expected:      %lu\n",
+#elif defined(__x86_64__)
+	printf("CMPXCHG counter: %lu\n", shared_counter_llsc);
+	printf("LOCK ADD counter: %lu\n", shared_counter_lse);
+#endif
+	printf("Expected:        %lu\n",
 	       (uint64_t)(WARMUP_ITERATIONS + PERCENTILE_ITERATIONS * SUB_ITERATIONS) * num_cpus);
 
 	/* Cleanup */
