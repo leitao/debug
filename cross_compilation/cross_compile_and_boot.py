@@ -2,6 +2,8 @@
 """
 Script to download a Debian rootfs, compile a kernel, and boot with QEMU.
 Supports ppc64el and arm64 architectures.
+
+Usage: Run this script from within a Linux kernel source tree.
 """
 
 import subprocess
@@ -12,7 +14,8 @@ import shutil
 from pathlib import Path
 
 
-KERNEL_DIR = Path("/home/leit/Devel/linux-next")
+# Kernel directory is the current working directory
+KERNEL_DIR = Path.cwd()
 
 # Architecture-specific configurations
 ARCH_CONFIG = {
@@ -97,8 +100,11 @@ def download_rootfs(arch):
     paths["rootfs_dir"].mkdir(parents=True, exist_ok=True)
 
     # Use debootstrap with --foreign (no chroot execution needed)
+    # Include basic tools for a usable system
+    packages = "bash,coreutils,util-linux,procps,iproute2,less,vim-tiny,strace,kmod"
     run_cmd(
         f"sudo debootstrap --arch={config['debian_arch']} --variant=minbase --foreign "
+        f"--include={packages} "
         f"bookworm {paths['rootfs_dir']} http://deb.debian.org/debian"
     )
 
@@ -116,7 +122,7 @@ if [ -x /debootstrap/debootstrap ]; then
 fi
 
 echo "Welcome to {config['welcome_msg']} Debian!"
-exec /bin/sh
+exec /bin/bash
 """
     with open("/tmp/qemu_init", "w") as f:
         f.write(init_content)
@@ -162,8 +168,9 @@ def compile_kernel(arch):
         print(f"Kernel {kernel_image} already exists, skipping compilation.")
         return
 
-    if not KERNEL_DIR.exists():
-        print(f"Error: Kernel source not found at {KERNEL_DIR}")
+    if not KERNEL_DIR.exists() or not (KERNEL_DIR / "Makefile").exists():
+        print(f"Error: Not a Linux kernel source tree: {KERNEL_DIR}")
+        print("Please run this script from within a Linux kernel source directory.")
         sys.exit(1)
 
     # Set up LLVM cross-compilation environment
