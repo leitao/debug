@@ -58,11 +58,12 @@ echo "=== Workqueue Affinity Scope: cache vs cache_shard ==="
 echo "Cache shard count: ${shard_count}"
 echo ""
 
-declare -a RESULTS
+printf "%-12s %12s %12s %10s %12s %12s %10s\n" \
+        "ioengine" "write(cache)" "write(shard)" "w_delta" "read(cache)" "read(shard)" "r_delta"
+printf "%-12s %12s %12s %10s %12s %12s %10s\n" \
+        "--------" "------------" "------------" "-------" "-----------" "-----------" "-------"
 
 for engine in "${IOENGINES[@]}"; do
-        echo "Testing ioengine=$engine ..."
-
         # cache: write
         rm -fr /mnt/nfs/*
         echo "cache" > "$AFFINITY_PATH"
@@ -83,28 +84,19 @@ for engine in "${IOENGINES[@]}"; do
         r2=$(${FIO_BASE} --name=rb --rw=read --ioengine="$engine" 2>/dev/null)
         r2_bw=$(echo "$r2" | jq '[.jobs[].read.bw_bytes] | add')
 
-        RESULTS+=("$engine $w1_bw $w2_bw $r1_bw $r2_bw")
-done
+        w1_mb=$(echo "scale=1; $w1_bw / 1048576" | bc)
+        w2_mb=$(echo "scale=1; $w2_bw / 1048576" | bc)
+        r1_mb=$(echo "scale=1; $r1_bw / 1048576" | bc)
+        r2_mb=$(echo "scale=1; $r2_bw / 1048576" | bc)
+        w_delta=$(echo "scale=1; ($w2_bw - $w1_bw) * 100 / $w1_bw" | bc)
+        r_delta=$(echo "scale=1; ($r2_bw - $r1_bw) * 100 / $r1_bw" | bc)
 
-echo ""
-printf "%-12s %12s %12s %10s %12s %12s %10s\n" \
-        "ioengine" "write(cache)" "write(shard)" "w_delta" "read(cache)" "read(shard)" "r_delta"
-printf "%-12s %12s %12s %10s %12s %12s %10s\n" \
-        "--------" "------------" "------------" "-------" "-----------" "-----------" "-------"
-
-for entry in "${RESULTS[@]}"; do
-        read -r eng w1b w2b r1b r2b <<< "$entry"
-        w1_mb=$(echo "scale=1; $w1b / 1048576" | bc)
-        w2_mb=$(echo "scale=1; $w2b / 1048576" | bc)
-        r1_mb=$(echo "scale=1; $r1b / 1048576" | bc)
-        r2_mb=$(echo "scale=1; $r2b / 1048576" | bc)
-        w_delta=$(echo "scale=1; ($w2b - $w1b) * 100 / $w1b" | bc)
-        r_delta=$(echo "scale=1; ($r2b - $r1b) * 100 / $r1b" | bc)
         printf "%-12s %10sM %10sM %9s%% %10sM %10sM %9s%%\n" \
-                "$eng" "$w1_mb" "$w2_mb" "$w_delta" "$r1_mb" "$r2_mb" "$r_delta"
+                "$engine" "$w1_mb" "$w2_mb" "$w_delta" "$r1_mb" "$r2_mb" "$r_delta"
 done
 
 # Restore original
 echo "cache" > "$AFFINITY_PATH"
 echo ""
 echo "Restored default_affinity_scope to: $(cat "$AFFINITY_PATH")"
+
