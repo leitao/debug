@@ -53,9 +53,9 @@ AFFINITY_PATH="/sys/module/workqueue/parameters/default_affinity_scope"
 IOENGINES=(sync psync vsync pvsync pvsync2 libaio)
 FIO_BASE="fio --bs=512 --size=4G --numjobs=200 --direct=1 --filename=/mnt/nfs/foo --runtime=10 --output-format=json"
 
-shard_count=$(drgn -e 'print(prog["wq_cache_shard_count"])' 2>/dev/null | tr -d '(unsigned int)')
+shard_size=$(cat /sys/module/workqueue/parameters/cache_shard_size 2>/dev/null || echo "N/A")
 echo "=== Workqueue Affinity Scope: cache vs cache_shard ==="
-echo "Cache shard count: ${shard_count}"
+echo "Cache shard size: ${shard_size}"
 echo ""
 
 printf "%-12s %12s %12s %10s %12s %12s %10s\n" \
@@ -63,10 +63,21 @@ printf "%-12s %12s %12s %10s %12s %12s %10s\n" \
 printf "%-12s %12s %12s %10s %12s %12s %10s\n" \
         "--------" "------------" "------------" "-------" "-----------" "-----------" "-------"
 
+echo "==> Warmup phase (30s write + 30s read) ..."
+rm -fr /mnt/nfs/*
+fio --bs=512 --size=4G --numjobs=200 --direct=1 --filename=/mnt/nfs/foo --runtime=30 --name=warmup_w --rw=write --ioengine=psync >/dev/null 2>&1
+fio --bs=512 --size=4G --numjobs=200 --direct=1 --filename=/mnt/nfs/foo --runtime=30 --name=warmup_r --rw=read --ioengine=psync >/dev/null 2>&1
+echo "==> Warmup done."
+echo ""
+
 for engine in "${IOENGINES[@]}"; do
-        # cache: write
+        # cache: warmup
         rm -fr /mnt/nfs/*
         echo "cache" > "$AFFINITY_PATH"
+        ${FIO_BASE} --name=wu --rw=write --ioengine="$engine" >/dev/null 2>&1
+
+        # cache: write
+        rm -fr /mnt/nfs/*
         w1=$(${FIO_BASE} --name=wb --rw=write --ioengine="$engine" 2>/dev/null)
         w1_bw=$(echo "$w1" | jq '[.jobs[].write.bw_bytes] | add')
 
@@ -74,9 +85,13 @@ for engine in "${IOENGINES[@]}"; do
         r1=$(${FIO_BASE} --name=rb --rw=read --ioengine="$engine" 2>/dev/null)
         r1_bw=$(echo "$r1" | jq '[.jobs[].read.bw_bytes] | add')
 
-        # cache_shard: write
+        # cache_shard: warmup
         rm -fr /mnt/nfs/*
         echo "cache_shard" > "$AFFINITY_PATH"
+        ${FIO_BASE} --name=wu --rw=write --ioengine="$engine" >/dev/null 2>&1
+
+        # cache_shard: write
+        rm -fr /mnt/nfs/*
         w2=$(${FIO_BASE} --name=wb --rw=write --ioengine="$engine" 2>/dev/null)
         w2_bw=$(echo "$w2" | jq '[.jobs[].write.bw_bytes] | add')
 
