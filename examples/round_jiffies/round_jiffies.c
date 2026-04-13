@@ -2,11 +2,12 @@
 /*
  * Simulate round_jiffies_common() to show per-CPU timer offsets.
  *
- * Usage: round_jiffies <max_cpu> [skew] [HZ] [j_relative]
+ * Usage: round_jiffies <max_cpu> [skew] [HZ] [interval] [jiffies]
  *   max_cpu     : highest CPU number to simulate (0..max_cpu)
  *   skew        : jiffies per CPU offset (default: 3)
  *   HZ          : timer frequency (default: 1000)
- *   j_relative  : relative delay in jiffies, e.g. HZ+1 (default: HZ+1)
+ *   interval    : sysctl_stat_interval in jiffies (default: 1000)
+ *   jiffies     : simulated current jiffies (default: HZ/2)
  */
 #include <limits.h>
 #include <stdbool.h>
@@ -14,11 +15,13 @@
 #include <stdlib.h>
 
 static unsigned long hz;
-static unsigned long jiffies_val;
+
+/* Simulate current jiffies at mid-second so rounding is non-degenerate */
+static unsigned long jiffies = 0;
 
 static bool time_is_after_jiffies(unsigned long j)
 {
-	return (long)(j - jiffies_val) > 0;
+	return (long)(j - jiffies) > 0;
 }
 
 static unsigned long round_jiffies_common(unsigned long j, int cpu,
@@ -41,57 +44,55 @@ static unsigned long round_jiffies_common(unsigned long j, int cpu,
 	return time_is_after_jiffies(j) ? j : original;
 }
 
-static unsigned long round_jiffies_relative(unsigned long j, int cpu, int skew)
+static unsigned long round_jiffies_relative(unsigned long interval, int cpu, int skew)
 {
-	unsigned long j0 = jiffies_val;
+	unsigned long j0 = jiffies;
 
-	return round_jiffies_common(j + j0, cpu, skew, false) - j0;
+	/* Use j0 because jiffies might change while we run */
+	return round_jiffies_common(interval + j0, cpu, skew, false) - j0;
 }
 
 int main(int argc, char *argv[])
 {
-	unsigned long j, result, prev_result, min_result, max_result;
+	unsigned long interval, result, prev_result, min_result, max_result;
 	int n, cpu, skew;
 
 	if (argc < 2) {
-		fprintf(stderr, "Usage: %s <max_cpu> [skew] [HZ] [j_relative]\n",
+		fprintf(stderr, "Usage: %s <max_cpu> [skew] [HZ] [interval] [jiffies]\n",
 			argv[0]);
-		fprintf(stderr, "  skew       : jiffies per CPU offset (default: 3)\n");
-		fprintf(stderr, "  HZ         : timer frequency (default: 1000)\n");
-		fprintf(stderr, "  j_relative : relative delay in jiffies (default: 10000)\n");
+		fprintf(stderr, "  skew     : jiffies per CPU offset (default: 3)\n");
+		fprintf(stderr, "  HZ       : timer frequency (default: 1000)\n");
+		fprintf(stderr, "  interval : sysctl_stat_interval in jiffies (default: 1000)\n");
+		fprintf(stderr, "  jiffies  : simulated current jiffies (default: HZ/2)\n");
 		return 1;
 	}
 
-	n    = atoi(argv[1]);
-	skew = argc > 2 ? atoi(argv[2]) : 3;
-	hz   = argc > 3 ? atoi(argv[3]) : 1000;
-	j    = argc > 4 ? (unsigned long)atoi(argv[4]) : 10000;
+	n        = atoi(argv[1]);
+	skew     = argc > 2 ? atoi(argv[2]) : 3;
+	hz       = argc > 3 ? atoi(argv[3]) : 1000;
+	interval = argc > 4 ? (unsigned long)atoi(argv[4]) : 1000;
+	jiffies  = argc > 5 ? (unsigned long)atoi(argv[5]) : hz / 2;
 
-	/* Start mid-second to make rounding more realistic */
-	jiffies_val = hz * 5 + hz / 2;
-
-	printf("HZ=%lu  jiffies=%lu  j_relative=%lu  skew=%d\n\n",
-	       hz, jiffies_val, j, skew);
-	printf("%-6s  %-10s  %-12s  %s\n",
-	       "CPU", "result", "ms_offset", "delta_to_prev");
-	printf("%-6s  %-10s  %-12s  %s\n",
-	       "---", "------", "---------", "-------------");
+	printf("HZ=%lu  skew=%d  interval=%lu  jiffies=%lu\n\n",
+	       hz, skew, interval, jiffies);
+	printf("%-6s  %-12s  %s\n", "CPU", "delay_ms", "delta_to_prev");
+	printf("%-6s  %-12s  %s\n", "---", "--------", "-------------");
 
 	prev_result = 0;
 	min_result = ULONG_MAX;
 	max_result = 0;
 	for (cpu = 0; cpu <= n; cpu++) {
-		result = round_jiffies_relative(j, cpu, skew);
+		result = round_jiffies_relative(interval, cpu, skew);
 		if (result < min_result)
 			min_result = result;
 		if (result > max_result)
 			max_result = result;
 		if (cpu == 0) {
-			printf("%-6d  %-10lu  %-12ld  -\n",
-			       cpu, result, (long)result * 1000 / (long)hz);
+			printf("%-6d  %-12ld  -\n",
+			       cpu, (long)result * 1000 / (long)hz);
 		} else {
-			printf("%-6d  %-10lu  %-12ld  %+ldms\n",
-			       cpu, result,
+			printf("%-6d  %-12ld  %+ldms\n",
+			       cpu,
 			       (long)result * 1000 / (long)hz,
 			       ((long)result - (long)prev_result) * 1000 / (long)hz);
 		}
